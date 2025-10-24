@@ -13,10 +13,10 @@ load_dotenv()
 
 # ================== НАСТРОЙКИ ==================
 API_TOKEN = os.getenv('API_TOKEN')
-ADMIN_IDS = [5009858379, 587180281, 1225271746]  # 👈 ЗДЕСЬ МОЖНО МЕНЯТЬ АДМИНОВ
+ADMIN_IDS = [5009858379, 587180281, 1225271746]  # 👈 ЗДЕСЬ АДМИНы
 
-# 👇 ЗДЕСЬ МЕНЯЙ НОМЕР КАРТЫ НА СВОЙ
-CARD_NUMBER = "8600 1234 5678 9012"  # 🎯 ЗАМЕНИ НА РЕАЛЬНУЮ КАРТУ
+# 👇 ЗДЕСЬ  НОМЕР КАРТЫ 
+CARD_NUMBER = "6262 4700 5534 4787"  # 
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
