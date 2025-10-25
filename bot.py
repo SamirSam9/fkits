@@ -15,7 +15,7 @@ load_dotenv()
 # ================== НАСТРОЙКИ ==================
 API_TOKEN = os.getenv('API_TOKEN')
 CARD_NUMBER = os.getenv('CARD_NUMBER', '6262 4700 5534 4787')  
-ADMIN_IDS = [5009858379, 587180281, 1225271746]
+ADMIN_IDS = [5009858379, 587180281]  # Убрал нерабочий ID
 
 # Константы
 ORDER_NEW = 'new'
@@ -39,7 +39,7 @@ def setup_database():
             name TEXT NOT NULL,
             language TEXT DEFAULT 'ru',
             region TEXT,
-            location TEXT,
+            post_office TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -80,13 +80,13 @@ def setup_database():
             user_phone TEXT NOT NULL,
             user_name TEXT,
             user_region TEXT,
-            user_location TEXT,
+            user_post_office TEXT,
             product_name TEXT NOT NULL,
             product_price INTEGER NOT NULL,
             product_size TEXT,
             customization_text TEXT,
             customization_price INTEGER DEFAULT 0,
-            payment_method TEXT DEFAULT 'cash',
+            payment_method TEXT DEFAULT 'card_pending',
             status TEXT DEFAULT 'new',
             receipt_photo_id TEXT,
             confirmed_by INTEGER,
@@ -125,7 +125,90 @@ def setup_database():
     conn.close()
     print("✅ База данных готова")
 
-# ================== РЕГИОНЫ И ФИЛИАЛЫ ПОЧТ ==================
+# ================== РЕГИОНЫ И ПОЧТОВЫЕ ОТДЕЛЕНИЯ ==================
+POST_OFFICES = {
+    'tashkent': {
+        'ru': [
+            "📮 Чиланзарское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791001\n🗺️ Google: https://maps.app.goo.gl/example1",
+            "📮 Юнусабадское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791002\n🗺️ Google: https://maps.app.goo.gl/example2",
+            "📮 Мирзо-Улугбекское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791003\n🗺️ Google: https://maps.app.goo.gl/example3",
+            "📮 Шайхантахурское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791004\n🗺️ Google: https://maps.app.goo.gl/example4",
+            "📮 Алмазарское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5"
+        ],
+        'uz': [
+            "📮 Chilanzar OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791001\n🗺️ Google: https://maps.app.goo.gl/example1",
+            "📮 Yunusobod OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791002\n🗺️ Google: https://maps.app.goo.gl/example2",
+            "📮 Mirzo-Ulugʻbek OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791003\n🗺️ Google: https://maps.app.goo.gl/example3",
+            "📮 Shayxontoxur OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791004\n🗺️ Google: https://maps.app.goo.gl/example4",
+            "📮 Olmazor OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5"
+        ]
+    },
+    'samarkand': {
+        'ru': [
+            "📮 Самаркандское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
+            "📮 ОПС Сиаб\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7",
+            "📮 ОПС Регистан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
+            "📮 ОПС Амира Темура\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
+            "📮 ОПС Ургут\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10"
+        ],
+        'uz': [
+            "📮 Samarqand OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
+            "📮 Siob OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7",
+            "📮 Registon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
+            "📮 Amir Temur OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
+            "📮 Urgut OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10"
+        ]
+    },
+    'andijan': {
+        'ru': [
+            "📮 Андижанское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791011\n🗺️ Google: https://maps.app.goo.gl/example11",
+            "📮 ОПС Ханабад\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791012\n🗺️ Google: https://maps.app.goo.gl/example12",
+            "📮 ОПС Асака\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791013\n🗺️ Google: https://maps.app.goo.gl/example13",
+            "📮 ОПС Шахрихан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791014\n🗺️ Google: https://maps.app.goo.gl/example14",
+            "📮 ОПС Балыкчи\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791015\n🗺️ Google: https://maps.app.goo.gl/example15"
+        ],
+        'uz': [
+            "📮 Andijon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791011\n🗺️ Google: https://maps.app.goo.gl/example11",
+            "📮 Xonobod OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791012\n🗺️ Google: https://maps.app.goo.gl/example12",
+            "📮 Asaka OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791013\n🗺️ Google: https://maps.app.goo.gl/example13",
+            "📮 Shahrixon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791014\n🗺️ Google: https://maps.app.goo.gl/example14",
+            "📮 Baliqchi OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791015\n🗺️ Google: https://maps.app.goo.gl/example15"
+        ]
+    },
+    'bukhara': {
+        'ru': [
+            "📮 Бухарское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791016\n🗺️ Google: https://maps.app.goo.gl/example16",
+            "📮 ОПС Гиждуван\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791017\n🗺️ Google: https://maps.app.goo.gl/example17",
+            "📮 ОПС Каган\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791018\n🗺️ Google: https://maps.app.goo.gl/example18",
+            "📮 ОПС Ромитан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791019\n🗺️ Google: https://maps.app.goo.gl/example19",
+            "📮 ОПС Шафиркан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791020\n🗺️ Google: https://maps.app.goo.gl/example20"
+        ],
+        'uz': [
+            "📮 Buxoro OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791016\n🗺️ Google: https://maps.app.goo.gl/example16",
+            "📮 G'ijduvon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791017\n🗺️ Google: https://maps.app.goo.gl/example17",
+            "📮 Kogon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791018\n🗺️ Google: https://maps.app.goo.gl/example18",
+            "📮 Romitan OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791019\n🗺️ Google: https://maps.app.goo.gl/example19",
+            "📮 Shofirkon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791020\n🗺️ Google: https://maps.app.goo.gl/example20"
+        ]
+    },
+    'fergana': {
+        'ru': [
+            "📮 Ферганское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791021\n🗺️ Google: https://maps.app.goo.gl/example21",
+            "📮 ОПС Маргилан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791022\n🗺️ Google: https://maps.app.goo.gl/example22",
+            "📮 ОПС Кувасай\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791023\n🗺️ Google: https://maps.app.goo.gl/example23",
+            "📮 ОПС Коканд\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791024\n🗺️ Google: https://maps.app.goo.gl/example24",
+            "📮 ОПС Риштан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791025\n🗺️ Google: https://maps.app.goo.gl/example25"
+        ],
+        'uz': [
+            "📮 Farg'ona OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791021\n🗺️ Google: https://maps.app.goo.gl/example21",
+            "📮 Marg'ilon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791022\n🗺️ Google: https://maps.app.goo.gl/example22",
+            "📮 Quvasoy OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791023\n🗺️ Google: https://maps.app.goo.gl/example23",
+            "📮 Qo'qon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791024\n🗺️ Google: https://maps.app.goo.gl/example24",
+            "📮 Rishton OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791025\n🗺️ Google: https://maps.app.goo.gl/example25"
+        ]
+    }
+}
+
 REGIONS = {
     'ru': {
         'tashkent': '🏙️ Ташкент',
@@ -164,7 +247,6 @@ user_sessions = {}
 user_selections = {}
 user_carts = {}
 support_requests = {}
-admin_product_creation = {}
 
 # ================== КЛАВИАТУРЫ ==================
 def get_language_keyboard():
@@ -192,13 +274,17 @@ def get_region_keyboard(language):
     builder.adjust(2)
     return builder.as_markup(resize_keyboard=True)
 
-def get_location_keyboard(language):
-    text = "📍 Отправить локацию" if language == 'ru' else "📍 Manzilni yuborish"
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=text, request_location=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
+def get_post_office_keyboard(region, language):
+    builder = ReplyKeyboardBuilder()
+    if region in POST_OFFICES:
+        offices = POST_OFFICES[region][language]
+        for office in offices:
+            # Берем только первую строку с названием отделения
+            office_name = office.split('\n')[0]
+            builder.add(KeyboardButton(text=office_name))
+    builder.add(KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga"))
+    builder.adjust(1)
+    return builder.as_markup(resize_keyboard=True)
 
 def get_main_menu(language):
     builder = ReplyKeyboardBuilder()
@@ -307,14 +393,12 @@ def get_payment_menu(language):
     
     if language == 'ru':
         builder.add(KeyboardButton(text="💳 Перевод на карту"))
-        builder.add(KeyboardButton(text="💵 Наличные"))
         builder.add(KeyboardButton(text="❌ Отмена"))
     else:
         builder.add(KeyboardButton(text="💳 Karta orqali to'lash"))
-        builder.add(KeyboardButton(text="💵 Naqd pul"))
         builder.add(KeyboardButton(text="❌ Bekor qilish"))
     
-    builder.adjust(2, 1)
+    builder.adjust(2)
     return builder.as_markup(resize_keyboard=True)
 
 def get_reviews_menu(language):
@@ -356,13 +440,9 @@ def get_text(key, language):
             'ru': "🏙️ Выберите ваш регион для доставки:",
             'uz': "🏙️ Yetkazib berish uchun viloyatingizni tanlang:"
         },
-        'location_request_tashkent': {
-            'ru': "📍 Теперь поделитесь вашим местоположением для доставки:",
-            'uz': "📍 Endi yetkazib berish uchun manzilingizni ulashing:"
-        },
-        'post_office_info': {
-            'ru': "📮 Информация о почтовых отделениях:\n\n",
-            'uz': "📮 Pochta bo'limlari haqida ma'lumot:\n\n"
+        'post_office_request': {
+            'ru': "📮 Выберите почтовое отделение:",
+            'uz': "📮 Pochta bo'limini tanlang:"
         },
         'contact_received': {
             'ru': "✅ Контакт получен!",
@@ -371,10 +451,6 @@ def get_text(key, language):
         'phone_received': {
             'ru': "✅ Номер получен!",
             'uz': "✅ Raqam qabul qilindi!"
-        },
-        'location_received': {
-            'ru': "✅ Локация получена! Теперь вы можете выбирать товары:",
-            'uz': "✅ Manzil qabul qilindi! Endi mahsulotlarni tanlashingiz mumkin:"
         },
         'post_office_received': {
             'ru': "✅ Отделение выбрано! Теперь вы можете выбирать товары:",
@@ -403,19 +479,19 @@ def get_text(key, language):
 def get_db_connection():
     return sqlite3.connect('football_shop.db', check_same_thread=False)
 
-def save_user(user_id, phone, name, language, region=None, location=None):
+def save_user(user_id, phone, name, language, region=None, post_office=None):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR REPLACE INTO users (user_id, phone, name, language, region, location) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, phone, name, language, region, location)
+            "INSERT OR REPLACE INTO users (user_id, phone, name, language, region, post_office) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, phone, name, language, region, post_office)
         )
         conn.commit()
 
 def get_user(user_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT phone, name, language, region, location FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("SELECT phone, name, language, region, post_office FROM users WHERE user_id = ?", (user_id,))
         return cursor.fetchone()
 
 def get_products_by_category(category, language):
@@ -440,13 +516,13 @@ def get_product_by_id(product_id, language):
             
         return cursor.fetchone()
 
-def save_order(user_id, phone, name, region, location, product_name, product_price, product_size=None, customization_text=None, customization_price=0, payment_method='cash'):
+def save_order(user_id, phone, name, region, post_office, product_name, product_price, product_size=None, customization_text=None, customization_price=0, payment_method='card_pending'):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO orders (user_id, user_phone, user_name, user_region, user_location, product_name, product_price, product_size, customization_text, customization_price, payment_method) 
+            """INSERT INTO orders (user_id, user_phone, user_name, user_region, user_post_office, product_name, product_price, product_size, customization_text, customization_price, payment_method) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, phone, name, region, location, product_name, product_price, product_size, customization_text, customization_price, payment_method)
+            (user_id, phone, name, region, post_office, product_name, product_price, product_size, customization_text, customization_price, payment_method)
         )
         order_id = cursor.lastrowid
         conn.commit()
@@ -584,231 +660,6 @@ async def notify_admins(text, photo_id=None):
         except Exception as e:
             logging.error(f"Ошибка отправки админу {admin_id}: {e}")
 
-# ================== ИНФОРМАЦИЯ О ПОЧТОВЫХ ОТДЕЛЕНИЯХ ==================
-def get_post_offices_info(region, language):
-    post_offices_info = {
-        'tashkent': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ТАШКЕНТА:
-
-• 📍 Чиланзарское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10335/tashkent/?ll=69.240562%2C41.311151&z=13
-  🗺️ Google: https://goo.gl/maps/example1
-
-• 📍 Юнусабадское ОПС  
-  🗺️ Яндекс: https://yandex.uz/maps/10335/tashkent/?ll=69.280562%2C41.351151&z=13
-  🗺️ Google: https://goo.gl/maps/example2
-
-• 📍 Мирзо-Улугбекское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10335/tashkent/?ll=69.260562%2C41.331151&z=13
-  🗺️ Google: https://goo.gl/maps/example3
-
-Выберите ближайшее отделение и сообщите нам при оформлении заказа.""",
-            'uz': """📮 TOSHKENT Pochta Bo'limlari:
-
-• 📍 Chilanzar OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10335/tashkent/?ll=69.240562%2C41.311151&z=13
-  🗺️ Google: https://goo.gl/maps/example1
-
-• 📍 Yunusobod OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10335/tashkent/?ll=69.280562%2C41.351151&z=13  
-  🗺️ Google: https://goo.gl/maps/example2
-
-• 📍 Mirzo-Ulugʻbek OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10335/tashkent/?ll=69.260562%2C41.331151&z=13
-  🗺️ Google: https://goo.gl/maps/example3
-
-Eng yaqin bo'limni tanlang va buyurtma berishda bizga xabar bering."""
-        },
-        'samarkand': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ САМАРКАНДА:
-
-• 📍 Самаркандское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10336/samarkand/?ll=66.959727%2C39.655146&z=13
-  🗺️ Google: https://goo.gl/maps/example4
-
-• 📍 ОПС Сиаб
-  🗺️ Яндекс: https://yandex.uz/maps/10336/samarkand/?ll=66.939727%2C39.635146&z=13
-  🗺️ Google: https://goo.gl/maps/example5
-
-• 📍 ОПС Регистан
-  🗺️ Яндекс: https://yandex.uz/maps/10336/samarkand/?ll=66.979727%2C39.675146&z=13
-  🗺️ Google: https://goo.gl/maps/example6""",
-            'uz': """📮 SAMARQAND Pochta Bo'limlari:
-
-• 📍 Samarqand OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.959727%2C39.655146&z=13
-  🗺️ Google: https://goo.gl/maps/example4
-
-• 📍 Siob OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.939727%2C39.635146&z=13
-  🗺️ Google: https://goo.gl/maps/example5
-
-• 📍 Registon OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.979727%2C39.675146&z=13
-  🗺️ Google: https://goo.gl/maps/example6"""
-        },
-        'andijan': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ АНДИЖАНА:
-
-• 📍 Андижанское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10337/andijan/?ll=72.3447%2C40.7821&z=13
-  🗺️ Google: https://goo.gl/maps/example7
-
-• 📍 ОПС Ханабад
-  🗺️ Яндекс: https://yandex.uz/maps/10337/andijan/?ll=72.3647%2C40.8021&z=13
-  🗺️ Google: https://goo.gl/maps/example8""",
-            'uz': """📮 ANDIJON Pochta Bo'limlari:
-
-• 📍 Andijon OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10337/andijan/?ll=72.3447%2C40.7821&z=13
-  🗺️ Google: https://goo.gl/maps/example7
-
-• 📍 Xonobod OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10337/andijan/?ll=72.3647%2C40.8021&z=13
-  🗺️ Google: https://goo.gl/maps/example8"""
-        },
-        'bukhara': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ БУХАРЫ:
-
-• 📍 Бухарское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10338/bukhara/?ll=64.4557%2C39.7757&z=13
-  🗺️ Google: https://goo.gl/maps/example9
-
-• 📍 ОПС Гиждуван
-  🗺️ Яндекс: https://yandex.uz/maps/10338/bukhara/?ll=64.4757%2C39.7957&z=13
-  🗺️ Google: https://goo.gl/maps/example10""",
-            'uz': """📮 BUXORO Pochta Bo'limlari:
-
-• 📍 Buxoro OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10338/bukhara/?ll=64.4557%2C39.7757&z=13
-  🗺️ Google: https://goo.gl/maps/example9
-
-• 📍 G'ijduvon OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10338/bukhara/?ll=64.4757%2C39.7957&z=13
-  🗺️ Google: https://goo.gl/maps/example10"""
-        },
-        'fergana': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ФЕРГАНЫ:
-
-• 📍 Ферганское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10339/fergana/?ll=71.7847%2C40.3864&z=13
-  🗺️ Google: https://goo.gl/maps/example11
-
-• 📍 ОПС Маргилан
-  🗺️ Яндекс: https://yandex.uz/maps/10339/fergana/?ll=71.8047%2C40.4064&z=13
-  🗺️ Google: https://goo.gl/maps/example12""",
-            'uz': """📮 FARG'ONA Pochta Bo'limlari:
-
-• 📍 Farg'ona OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10339/fergana/?ll=71.7847%2C40.3864&z=13
-  🗺️ Google: https://goo.gl/maps/example11
-
-• 📍 Marg'ilon OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10339/fergana/?ll=71.8047%2C40.4064&z=13
-  🗺️ Google: https://goo.gl/maps/example12"""
-        },
-        'jizzakh': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ДЖИЗАКА:
-
-• 📍 Джизакское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10340/jizzakh/?ll=67.8422%2C40.1158&z=13
-  🗺️ Google: https://goo.gl/maps/example13""",
-            'uz': """📮 JIZZAX Pochta Bo'limlari:
-
-• 📍 Jizzax OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10340/jizzakh/?ll=67.8422%2C40.1158&z=13
-  🗺️ Google: https://goo.gl/maps/example13"""
-        },
-        'kashkadarya': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ КАШКАДАРЬИ:
-
-• 📍 Каршинское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10341/karshi/?ll=65.7931%2C38.8611&z=13
-  🗺️ Google: https://goo.gl/maps/example14""",
-            'uz': """📮 QASHQADARYO Pochta Bo'limlari:
-
-• 📍 Qarshi OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10341/karshi/?ll=65.7931%2C38.8611&z=13
-  🗺️ Google: https://goo.gl/maps/example14"""
-        },
-        'khorezm': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ХОРЕЗМА:
-
-• 📍 Ургенчское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10342/urgench/?ll=60.6257%2C41.5507&z=13
-  🗺️ Google: https://goo.gl/maps/example15""",
-            'uz': """📮 XORAZM Pochta Bo'limlari:
-
-• 📍 Urganch OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10342/urgench/?ll=60.6257%2C41.5507&z=13
-  🗺️ Google: https://goo.gl/maps/example15"""
-        },
-        'namangan': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ НАМАНГАНА:
-
-• 📍 Наманганское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10343/namangan/?ll=71.6726%2C40.9983&z=13
-  🗺️ Google: https://goo.gl/maps/example16""",
-            'uz': """📮 NAMANGAN Pochta Bo'limlari:
-
-• 📍 Namangan OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10343/namangan/?ll=71.6726%2C40.9983&z=13
-  🗺️ Google: https://goo.gl/maps/example16"""
-        },
-        'navoi': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ НАВОИ:
-
-• 📍 Навоийское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10344/navoi/?ll=65.3797%2C40.0844&z=13
-  🗺️ Google: https://goo.gl/maps/example17""",
-            'uz': """📮 NAVOIY Pochta Bo'limlari:
-
-• 📍 Navoiy OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10344/navoi/?ll=65.3797%2C40.0844&z=13
-  🗺️ Google: https://goo.gl/maps/example17"""
-        },
-        'surkhandarya': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ СУРХАНДАРЬИ:
-
-• 📍 Термезское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10345/termez/?ll=67.2787%2C37.2249&z=13
-  🗺️ Google: https://goo.gl/maps/example18""",
-            'uz': """📮 SURXONDARYO Pochta Bo'limlari:
-
-• 📍 Termiz OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10345/termez/?ll=67.2787%2C37.2249&z=13
-  🗺️ Google: https://goo.gl/maps/example18"""
-        },
-        'syrdarya': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ СЫРДАРЬИ:
-
-• 📍 Гулистанское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10346/gulistan/?ll=68.7842%2C40.4897&z=13
-  🗺️ Google: https://goo.gl/maps/example19""",
-            'uz': """📮 SIRDARYO Pochta Bo'limlari:
-
-• 📍 Guliston OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10346/gulistan/?ll=68.7842%2C40.4897&z=13
-  🗺️ Google: https://goo.gl/maps/example19"""
-        },
-        'karakalpakstan': {
-            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ КАРАКАЛПАКСТАНА:
-
-• 📍 Нукусское ОПС
-  🗺️ Яндекс: https://yandex.uz/maps/10347/nukus/?ll=59.6107%2C42.4587&z=13
-  🗺️ Google: https://goo.gl/maps/example20""",
-            'uz': """📮 QORAQALPOG'ISTON Pochta Bo'limlari:
-
-• 📍 Nukus OПХ
-  🗺️ Yandex: https://yandex.uz/maps/10347/nukus/?ll=59.6107%2C42.4587&z=13
-  🗺️ Google: https://goo.gl/maps/example20"""
-        }
-    }
-    
-    return post_offices_info.get(region, {}).get(language, 
-        "📮 Выберите ближайшее почтовое отделение и сообщите нам при оформлении заказа." if language == 'ru' 
-        else "📮 Eng yaqin pochta bo'limini tanlang va buyurtma berishda bizga xabar bering.")
-
 # ================== ОСНОВНЫЕ КОМАНДЫ ==================
 @dp.message(Command("start"))
 async def start_bot(message: types.Message):
@@ -887,7 +738,7 @@ async def handle_contact(message: types.Message):
     await message.answer(get_text('contact_received', language))
     await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
 
-# ВЫБОР РЕГИОНА - ИСПРАВЛЕННАЯ ВЕРСИЯ
+# ВЫБОР РЕГИОНА
 @dp.message(F.text)
 async def handle_text_messages(message: types.Message):
     user_id = message.from_user.id
@@ -911,46 +762,48 @@ async def handle_text_messages(message: types.Message):
                 await message.answer("❌ Iltimos, ro'yxatdan viloyatni tanlang")
             return
         
-        user_sessions[user_id]['step'] = 'main_menu'  # ВАЖНО: меняем шаг на главное меню
+        user_sessions[user_id]['step'] = 'post_office'
         user_sessions[user_id]['region'] = selected_region
         
-        save_user(user_id, session['phone'], session['name'], language, selected_region)
-        
-        # Отправляем информацию о почтовых отделениях для выбранного региона
-        post_info = get_post_offices_info(selected_region, language)
-        await message.answer(post_info, parse_mode='HTML')
-        
-        if language == 'ru':
-            welcome_text = f"✅ Регистрация завершена! Выберите действие:"
+        # Показываем почтовые отделения для выбранного региона
+        if selected_region in POST_OFFICES:
+            offices = POST_OFFICES[selected_region][language]
+            for office in offices:
+                await message.answer(office)
+            
+            await message.answer(get_text('post_office_request', language), 
+                               reply_markup=get_post_office_keyboard(selected_region, language))
         else:
-            welcome_text = f"✅ Ro'yxatdan o'tish yakunlandi! Harakatni tanlang:"
+            # Если региона нет в списке, переходим сразу к главному меню
+            save_user(user_id, session['phone'], session['name'], language, selected_region)
+            user_sessions[user_id]['step'] = 'main_menu'
+            await message.answer("✅ Регистрация завершена!", reply_markup=get_main_menu(language))
+        return
+    
+    # Если пользователь выбирает почтовое отделение
+    elif session.get('step') == 'post_office':
+        language = session.get('language', 'ru')
+        region = session.get('region')
+        text = message.text
         
-        await message.answer(welcome_text, reply_markup=get_main_menu(language))
+        if text in ["↩️ Назад", "↩️ Orqaga"]:
+            user_sessions[user_id]['step'] = 'region'
+            await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
+            return
+        
+        # Сохраняем выбранное отделение
+        save_user(user_id, session['phone'], session['name'], language, region, text)
+        user_sessions[user_id]['step'] = 'main_menu'
+        user_sessions[user_id]['post_office'] = text
+        
+        await message.answer(get_text('post_office_received', language), 
+                           reply_markup=get_main_menu(language))
         return
     
     # Если пользователь уже в главном меню
     await handle_main_menu(message)
 
-# ПОЛУЧЕНИЕ ГЕОЛОКАЦИИ
-@dp.message(F.location)
-async def handle_location(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-    
-    if session.get('step') != 'location' or session.get('region') != 'tashkent':
-        return
-    
-    language = session.get('language', 'ru')
-    location = f"{message.location.latitude},{message.location.longitude}"
-    
-    save_user(user_id, session['phone'], session['name'], language, 'tashkent', location)
-    user_sessions[user_id]['step'] = 'main_menu'
-    user_sessions[user_id]['location'] = location
-    
-    await message.answer(get_text('location_received', language), 
-                       reply_markup=get_main_menu(language))
-
-# ОБРАБОТКА ГЛАВНОГО МЕНЮ - ИСПРАВЛЕННАЯ ВЕРСИЯ
+# ОБРАБОТКА ГЛАВНОГО МЕНЮ
 async def handle_main_menu(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
@@ -959,7 +812,7 @@ async def handle_main_menu(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     text = message.text
     
     # Обработка кнопок главного меню
@@ -998,8 +851,6 @@ async def handle_main_menu(message: types.Message):
     elif text in ["🗑️ Очистить корзину", "🗑️ Savatni tozalash"]:
         await clear_cart(message)
     elif text in ["💳 Перевод на карту", "💳 Karta orqali to'lash"]:
-        await handle_payment(message)
-    elif text in ["💵 Наличные", "💵 Naqd pul"]:
         await handle_payment(message)
     elif text in ["✅ Да, добавить имя и номер", "✅ Ha, ism va raqam qo'shing"]:
         await handle_customization_choice(message)
@@ -1080,7 +931,7 @@ async def show_catalog(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     
     if language == 'ru':
         text = "🛍️ Выберите категорию:"
@@ -1096,7 +947,7 @@ async def show_forms_menu(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     await message.answer("👕 Выберите тип форм:" if language == 'ru' else "👕 Formalar turini tanlang:", 
                        reply_markup=get_forms_submenu(language))
 
@@ -1118,7 +969,7 @@ async def show_help(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     await message.answer(get_text('help_text', language), parse_mode='HTML')
     support_requests[message.from_user.id] = {'waiting_question': True}
 
@@ -1135,12 +986,7 @@ async def show_category_products(message: types.Message, category_ru: str, categ
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
-    
-    if not location and not region:
-        text = "❌ Сначала укажите локацию!" if language == 'ru' else "❌ Avval manzilni ko'rsating!"
-        await message.answer(text)
-        return
+    phone, name, language, region, post_office = user
         
     products = get_products_by_category(category_ru, language)
     
@@ -1168,7 +1014,7 @@ async def handle_product_selection(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     
     try:
         product_id = int(message.text)
@@ -1304,8 +1150,49 @@ async def handle_size_selection(callback: types.CallbackQuery):
     
     language = user[2]
     size = callback.data.replace('size_', '')
-    selection = user_selections[callback.from_user.id]
     
+    if size == "help":
+        # Показываем таблицу размеров
+        if language == 'ru':
+            text = (
+                "📏 **ТАБЛИЦА РАЗМЕРОВ**\n\n"
+                "**👕 ФУТБОЛКИ И ФОРМЫ:**\n"
+                "• S (46-48) - Обхват груди: 92-96см\n" 
+                "• M (48-50) - Обхват груди: 96-100см\n"
+                "• L (50-52) - Обхват груди: 100-104см\n"
+                "• XL (52-54) - Обхват груди: 104-108см\n"
+                "• XXL (54-56) - Обхват груди: 108-112см\n\n"
+                "**⚽ БУТСЫ:**\n"
+                "• 40 EU - Для стопы ~25.5см\n"
+                "• 41 EU - Для стопы ~26.5см\n"
+                "• 42 EU - Для стопы ~27см\n"
+                "• 43 EU - Для стопы ~27.5см\n"
+                "• 44 EU - Для стопы ~28.5см\n\n"
+                "ℹ️ Если сомневаетесь в размере, напишите нам!"
+            )
+        else:
+            text = (
+                "📏 **OʻLCHAMLAR JADVALI**\n\n"
+                "**👕 FUTBOLKALAR VA FORMALAR:**\n"
+                "• S (46-48) - Ko'krak qafasi: 92-96sm\n"
+                "• M (48-50) - Ko'krak qafasi: 96-100sm\n" 
+                "• L (50-52) - Ko'krak qafasi: 100-104sm\n"
+                "• XL (52-54) - Ko'krak qafasi: 104-108sm\n"
+                "• XXL (54-56) - Ko'krak qafasi: 108-112sm\n\n"
+                "**⚽ FUTBOLKALAR:**\n"
+                "• 40 EU - Oyoq uchun ~25.5sm\n"
+                "• 41 EU - Oyoq uchun ~26.5sm\n"
+                "• 42 EU - Oyoq uchun ~27sm\n"
+                "• 43 EU - Oyoq uchun ~27.5sm\n"
+                "• 44 EU - Oyoq uchun ~28.5sm\n\n"
+                "ℹ️ Oʻlchamda shubhangiz boʻlsa, bizga yozing!"
+            )
+        
+        await callback.message.answer(text, parse_mode='HTML')
+        await callback.answer()
+        return
+    
+    selection = user_selections[callback.from_user.id]
     selection['size'] = size
     
     if callback.from_user.id not in user_carts:
@@ -1314,53 +1201,6 @@ async def handle_size_selection(callback: types.CallbackQuery):
     user_carts[callback.from_user.id].append(selection.copy())
     
     await show_cart(callback.from_user.id, language, callback.message)
-    await callback.answer()
-
-@dp.callback_query(F.data == "size_help")
-async def handle_size_help(callback: types.CallbackQuery):
-    user = get_user(callback.from_user.id)
-    if not user:
-        await callback.answer("❌ Сначала завершите регистрацию")
-        return
-    
-    language = user[2]
-    
-    if language == 'ru':
-        text = (
-            "📏 **ТАБЛИЦА РАЗМЕРОВ**\n\n"
-            "**👕 ФУТБОЛКИ И ФОРМЫ:**\n"
-            "• S (46-48) - Обхват груди: 92-96см\n" 
-            "• M (48-50) - Обхват груди: 96-100см\n"
-            "• L (50-52) - Обхват груди: 100-104см\n"
-            "• XL (52-54) - Обхват груди: 104-108см\n"
-            "• XXL (54-56) - Обхват груди: 108-112см\n\n"
-            "**⚽ БУТСЫ:**\n"
-            "• 40 EU - Для стопы ~25.5см\n"
-            "• 41 EU - Для стопы ~26.5см\n"
-            "• 42 EU - Для стопы ~27см\n"
-            "• 43 EU - Для стопы ~27.5см\n"
-            "• 44 EU - Для стопы ~28.5см\n\n"
-            "ℹ️ Если сомневаетесь в размере, напишите нам!"
-        )
-    else:
-        text = (
-            "📏 **OʻLCHAMLAR JADVALI**\n\n"
-            "**👕 FUTBOLKALAR VA FORMALAR:**\n"
-            "• S (46-48) - Ko'krak qafasi: 92-96sm\n"
-            "• M (48-50) - Ko'krak qafasi: 96-100sm\n" 
-            "• L (50-52) - Ko'krak qafasi: 100-104sm\n"
-            "• XL (52-54) - Ko'krak qafasi: 104-108sm\n"
-            "• XXL (54-56) - Ko'krak qafasi: 108-112sm\n\n"
-            "**⚽ FUTBOLKALAR:**\n"
-            "• 40 EU - Oyoq uchun ~25.5sm\n"
-            "• 41 EU - Oyoq uchun ~26.5sm\n"
-            "• 42 EU - Oyoq uchun ~27sm\n"
-            "• 43 EU - Oyoq uchun ~27.5sm\n"
-            "• 44 EU - Oyoq uchun ~28.5sm\n\n"
-            "ℹ️ Oʻlchamda shubhangiz boʻlsa, bizga yozing!"
-        )
-    
-    await callback.message.answer(text, parse_mode='HTML')
     await callback.answer()
 
 # КОРЗИНА
@@ -1426,168 +1266,123 @@ async def handle_payment(message: types.Message):
     if not user:
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     
-    is_card = message.text in ["💳 Перевод на карту", "💳 Karta orqali to'lash"]
+    if message.text in ["❌ Отмена", "❌ Bekor qilish"]:
+        await handle_cancel(message)
+        return
     
-    if 'checkout_cart' in user_sessions.get(message.from_user.id, {}):
-        # Оформление всей корзины
-        cart = user_sessions[message.from_user.id]['checkout_cart']
-        total_price = sum(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0) for item in cart)
+    # Только карта - убрана наличка
+    cart = user_sessions[message.from_user.id]['checkout_cart']
+    total_price = sum(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0) for item in cart)
+    
+    order_ids = []
+    order_details = []
+    
+    for item in cart:
+        order_id = save_order(
+            message.from_user.id, phone, name, region, post_office,
+            item['product_name'], item['product_price'],
+            item.get('size'), 
+            item.get('customization', {}).get('text') if item.get('customization') else None,
+            item.get('customization', {}).get('price', 0) if item.get('customization') else 0,
+            'card_pending'
+        )
+        order_ids.append(order_id)
         
-        if is_card:
-            order_ids = []
-            for item in cart:
-                order_id = save_order(
-                    message.from_user.id, phone, name, region, location,
-                    item['product_name'], item['product_price'],
-                    item.get('size'), 
-                    item.get('customization', {}).get('text') if item.get('customization') else None,
-                    item.get('customization', {}).get('price', 0) if item.get('customization') else 0,
-                    'card_pending'
-                )
-                order_ids.append(order_id)
-            
-            if language == 'ru':
-                text = (
-                    f"💳 Перевод на карту\n\n"
-                    f"📦 Заказов: {len(cart)}\n"
-                    f"💵 Сумма: {format_price(total_price, language)}\n\n"
-                    f"🔄 Переведите на карту:\n"
-                    f"<code>{CARD_NUMBER}</code>\n\n"
-                    f"📸 После перевода отправьте скриншот чека\n"
-                    f"Мы подтвердим заказы в течение 15 минут!"
-                )
-            else:
-                text = (
-                    f"💳 Karta orqali to'lash\n\n"
-                    f"📦 Buyurtmalar: {len(cart)}\n"
-                    f"💵 Summa: {format_price(total_price, language)}\n\n"
-                    f"🔄 Kartaga o'tkazing:\n"
-                    f"<code>{CARD_NUMBER}</code>\n\n"
-                    f"📸 O'tkazishdan so'ng chek skrinshotini yuboring\n"
-                    f"Buyurtmalarni 15 daqiqa ichida tasdiqlaymiz!"
-                )
-            
-            await message.answer(text, parse_mode='HTML')
-            user_sessions[message.from_user.id]['waiting_receipt'] = True
-            user_sessions[message.from_user.id]['order_ids'] = order_ids
-                
-        else:
-            for item in cart:
-                order_id = save_order(
-                    message.from_user.id, phone, name, region, location,
-                    item['product_name'], item['product_price'],
-                    item.get('size'),
-                    item.get('customization', {}).get('text') if item.get('customization') else None,
-                    item.get('customization', {}).get('price', 0) if item.get('customization') else 0,
-                    'cash'
-                )
-            
-            if language == 'ru':
-                text = f"✅ Заказы приняты! Всего {len(cart)} товара(ов)\n\n💵 Сумма: {format_price(total_price, language)}\n💵 Оплата: наличными при получении\n\nМы свяжемся с вами для подтверждения!"
-            else:
-                text = f"✅ Buyurtmalar qabul qilindi! Jami {len(cart)} mahsulot\n\n💵 Summa: {format_price(total_price, language)}\n💵 To'lov: yetkazib berishda naqd pul\n\nTasdiqlash uchun siz bilan bog'lanamiz!"
-            
-            await message.answer(text, reply_markup=get_main_menu(language))
-            
-            order_text = (
-                f"🆕 НАЛИЧНЫЕ ЗАКАЗЫ\n\n"
-                f"👤 {name} (@{message.from_user.username or 'N/A'})\n"
-                f"📞 {phone}\n"
-                f"🏙️ {REGIONS['ru'].get(region, region)}\n"
-                f"📍 {location}\n"
-                f"📦 Товаров: {len(cart)}\n"
-                f"💵 Сумма: {format_price(total_price, 'ru')}\n"
-                f"💰 Наличные\n"
-                f"🕒 {datetime.now().strftime('%H:%M %d.%m.%Y')}"
-            )
-            await notify_admins(order_text)
-        
-        if not is_card:
-            if message.from_user.id in user_carts:
-                del user_carts[message.from_user.id]
-            if 'checkout_cart' in user_sessions[message.from_user.id]:
-                del user_sessions[message.from_user.id]['checkout_cart']
+        # Формируем детали заказа для админа
+        item_detail = f"• {item['product_name']}"
+        if item.get('size'):
+            item_detail += f" | Размер: {item['size']}"
+        if item.get('customization'):
+            item_detail += f" | Кастомизация: {item['customization']['text']}"
+        item_detail += f" | {format_price(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0), 'ru')}"
+        order_details.append(item_detail)
     
+    if language == 'ru':
+        text = (
+            f"💳 Перевод на карту\n\n"
+            f"📦 Заказов: {len(cart)}\n"
+            f"💵 Сумма: {format_price(total_price, language)}\n\n"
+            f"🔄 Переведите на карту:\n"
+            f"<code>{CARD_NUMBER}</code>\n\n"
+            f"📸 После перевода отправьте скриншот чека\n"
+            f"Мы подтвердим заказы в течение 15 минут!"
+        )
     else:
-        # Старая логика для одного товара
-        if message.from_user.id not in user_selections:
-            if language == 'ru':
-                await message.answer("❌ Сначала выберите товар")
-            else:
-                await message.answer("❌ Avval mahsulotni tanlang")
-            return
+        text = (
+            f"💳 Karta orqali to'lash\n\n"
+            f"📦 Buyurtmalar: {len(cart)}\n"
+            f"💵 Summa: {format_price(total_price, language)}\n\n"
+            f"🔄 Kartaga o'tkazing:\n"
+            f"<code>{CARD_NUMBER}</code>\n\n"
+            f"📸 O'tkazishdan so'ng chek skrinshotini yuboring\n"
+            f"Buyurtmalarni 15 daqiqa ichida tasdiqlaymiz!"
+        )
+    
+    await message.answer(text, parse_mode='HTML')
+    user_sessions[message.from_user.id]['waiting_receipt'] = True
+    user_sessions[message.from_user.id]['order_ids'] = order_ids
+    
+    # Отправляем уведомление админам о новом заказе
+    admin_text = (
+        f"🆕 НОВЫЙ ЗАКАЗ\n\n"
+        f"👤 {name} (@{message.from_user.username or 'N/A'})\n"
+        f"📞 {phone}\n"
+        f"🏙️ {REGIONS['ru'].get(region, region)}\n"
+        f"📮 {post_office}\n\n"
+        f"📦 Товары:\n" + "\n".join(order_details) + f"\n\n"
+        f"💰 Итого: {format_price(total_price, 'ru')}\n"
+        f"💳 Оплата: картой\n"
+        f"🆔 Заказы: {', '.join(map(str, order_ids))}\n"
+        f"🕒 {datetime.now().strftime('%H:%M %d.%m.%Y')}"
+    )
+    await notify_admins(admin_text)
+
+# ОБРАБОТКА ЧЕКА ОПЛАТЫ
+@dp.message(F.photo)
+async def handle_receipt_photo(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    
+    if not session.get('waiting_receipt'):
+        return
+    
+    user = get_user(user_id)
+    if not user:
+        return
+    
+    language = user[2]
+    order_ids = session.get('order_ids', [])
+    
+    # Обновляем статус заказов
+    for order_id in order_ids:
+        update_order_status(order_id, 'waiting_confirm')
+    
+    # Отправляем чек админам
+    admin_text = f"📸 ЧЕК ОПЛАТЫ\n\nЗаказы: {', '.join(map(str, order_ids))}\nПользователь: {user[1]} (@{message.from_user.username or 'N/A'})"
+    
+    try:
+        await notify_admins(admin_text, message.photo[-1].file_id)
         
-        selection = user_selections[message.from_user.id]
-        product_name = selection['product_name']
-        product_price = selection['product_price']
-        product_size = selection.get('size', 'Не указан')
-        customization_text = selection.get('customization', {}).get('text') if selection.get('customization') else None
-        customization_price = selection.get('customization', {}).get('price', 0) if selection.get('customization') else 0
-        
-        if is_card:
-            order_id = save_order(
-                message.from_user.id, phone, name, region, location,
-                product_name, product_price, product_size, customization_text, customization_price, 'card_pending'
-            )
-            
-            if language == 'ru':
-                text = (
-                    f"💳 Перевод на карту\n\n"
-                    f"📦 Заказ: {product_name}\n"
-                    f"📏 Размер: {product_size}\n"
-                    f"💵 Сумма: {format_price(product_price + customization_price, language)}\n\n"
-                    f"🔄 Переведите на карту:\n"
-                    f"<code>{CARD_NUMBER}</code>\n\n"
-                    f"📸 После перевода отправьте скриншот чека\n"
-                    f"Мы подтвердим заказ в течение 15 минут!"
-                )
-            else:
-                text = (
-                    f"💳 Karta orqali to'lash\n\n"
-                    f"📦 Buyurtma: {product_name}\n"
-                    f"📏 Oʻlcham: {product_size}\n"
-                    f"💵 Summa: {format_price(product_price + customization_price, language)}\n\n"
-                    f"🔄 Kartaga o'tkazing:\n"
-                    f"<code>{CARD_NUMBER}</code>\n\n"
-                    f"📸 O'tkazishdan so'ng chek skrinshotini yuboring\n"
-                    f"Buyurtmani 15 daqiqa ichida tasdiqlaymiz!"
-                )
-            
-            await message.answer(text, parse_mode='HTML')
-            user_sessions[message.from_user.id]['waiting_receipt'] = True
-            user_sessions[message.from_user.id]['order_id'] = order_id
-                
+        if language == 'ru':
+            await message.answer("✅ Чек получен! Мы проверяем оплату и скоро подтвердим ваш заказ.", reply_markup=get_main_menu(language))
         else:
-            order_id = save_order(
-                message.from_user.id, phone, name, region, location,
-                product_name, product_price, product_size, customization_text, customization_price, 'cash'
-            )
-            
-            if language == 'ru':
-                text = f"✅ Заказ #{order_id} принят!\n\n📦 {product_name}\n📏 Размер: {product_size}\n💵 {format_price(product_price + customization_price, language)}\n💵 Оплата: наличными при получении\n\nМы свяжемся с вами для подтверждения!"
-            else:
-                text = f"✅ #{order_id}-buyurtma qabul qilindi!\n\n📦 {product_name}\n📏 Oʻlcham: {product_size}\n💵 {format_price(product_price + customization_price, language)}\n💵 To'lov: yetkazib berishda naqd pul\n\nTasdiqlash uchun siz bilan bog'lanamiz!"
-            
-            await message.answer(text, reply_markup=get_main_menu(language))
-            
-            order_text = (
-                f"🆕 НАЛИЧНЫЙ ЗАКАЗ #{order_id}\n\n"
-                f"👤 {name} (@{message.from_user.username or 'N/A'})\n"
-                f"📞 {phone}\n"
-                f"🏙️ {REGIONS['ru'].get(region, region)}\n"
-                f"📍 {location}\n"
-                f"📦 {product_name}\n"
-                f"📏 Размер: {product_size}\n"
-                f"💵 {format_price(product_price + customization_price, 'ru')}\n"
-                f"💰 Наличные\n"
-                f"🕒 {datetime.now().strftime('%H:%M %d.%m.%Y')}"
-            )
-            await notify_admins(order_text)
+            await message.answer("✅ Chek qabul qilindi! Biz to'lovni tekshiramiz va tez orada buyurtmangizni tasdiqlaymiz.", reply_markup=get_main_menu(language))
         
-        if not is_card and message.from_user.id in user_selections:
-            del user_selections[message.from_user.id]
+        # Очищаем корзину
+        if user_id in user_carts:
+            del user_carts[user_id]
+        if 'checkout_cart' in user_sessions[user_id]:
+            del user_sessions[user_id]['checkout_cart']
+        user_sessions[user_id]['waiting_receipt'] = False
+        
+    except Exception as e:
+        logging.error(f"Ошибка отправки чека: {e}")
+        if language == 'ru':
+            await message.answer("❌ Ошибка при отправке чека. Попробуйте еще раз.")
+        else:
+            await message.answer("❌ Chek yuborishda xatolik. Qayta urinib ko'ring.")
 
 # СИСТЕМА ОТЗЫВОВ
 async def show_reviews_menu(message: types.Message):
@@ -1727,7 +1522,7 @@ async def show_my_orders(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    phone, name, language, region, location = user
+    phone, name, language, region, post_office = user
     orders = get_user_orders(message.from_user.id, language)
     
     if orders:
@@ -1739,7 +1534,7 @@ async def show_my_orders(message: types.Message):
         for i, (product_name, product_price, customization_price, status, payment, created_at) in enumerate(orders, 1):
             total_price = product_price + (customization_price or 0)
             status_icon = "✅" if status == "confirmed" else "🔄" if status == "waiting_confirm" else "🆕"
-            payment_icon = "💳" if payment == "card_pending" else "💵"
+            payment_icon = "💳"
             
             status_text = "Подтвержден" if status == "confirmed" else "Ожидает подтверждения" if status == "waiting_confirm" else "Новый"
             if language == 'uz':
