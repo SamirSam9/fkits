@@ -646,6 +646,26 @@ Eng yaqin bo'limni tanlang va buyurtma berishda bizga xabar bering."""
 • 📍 Registon OПХ
   🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.979727%2C39.675146&z=13
   🗺️ Google: https://goo.gl/maps/example6"""
+        },
+        'andijan': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ АНДИЖАНА:
+
+• 📍 Андижанское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10337/andijan/?ll=72.3447%2C40.7821&z=13
+  🗺️ Google: https://goo.gl/maps/example7
+
+• 📍 ОПС Ханабад
+  🗺️ Яндекс: https://yandex.uz/maps/10337/andijan/?ll=72.3647%2C40.8021&z=13
+  🗺️ Google: https://goo.gl/maps/example8""",
+            'uz': """📮 ANDIJON Pochta Bo'limlari:
+
+• 📍 Andijon OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10337/andijan/?ll=72.3447%2C40.7821&z=13
+  🗺️ Google: https://goo.gl/maps/example7
+
+• 📍 Xonobod OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10337/andijan/?ll=72.3647%2C40.8021&z=13
+  🗺️ Google: https://goo.gl/maps/example8"""
         }
     }
     
@@ -731,71 +751,49 @@ async def handle_contact(message: types.Message):
     await message.answer(get_text('contact_received', language))
     await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
 
-# ВЫБОР РЕГИОНА
+# ВЫБОР РЕГИОНА - ИСПРАВЛЕННАЯ ВЕРСИЯ
 @dp.message(F.text)
-async def handle_region_selection(message: types.Message):
+async def handle_text_messages(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
     
-    if session.get('step') != 'region':
-        return await handle_main_menu(message)
-    
-    language = session.get('language', 'ru')
-    text = message.text
-    
-    selected_region = None
-    for region_key, region_name in REGIONS[language].items():
-        if text == region_name:
-            selected_region = region_key
-            break
-    
-    if not selected_region:
+    # Если пользователь выбирает регион
+    if session.get('step') == 'region':
+        language = session.get('language', 'ru')
+        text = message.text
+        
+        selected_region = None
+        for region_key, region_name in REGIONS[language].items():
+            if text == region_name:
+                selected_region = region_key
+                break
+        
+        if not selected_region:
+            if language == 'ru':
+                await message.answer("❌ Пожалуйста, выберите регион из списка")
+            else:
+                await message.answer("❌ Iltimos, ro'yxatdan viloyatni tanlang")
+            return
+        
+        user_sessions[user_id]['step'] = 'main_menu'  # ВАЖНО: меняем шаг на главное меню
+        user_sessions[user_id]['region'] = selected_region
+        
+        save_user(user_id, session['phone'], session['name'], language, selected_region)
+        
+        # Отправляем информацию о почтовых отделениях для выбранного региона
+        post_info = get_post_offices_info(selected_region, language)
+        await message.answer(post_info, parse_mode='HTML')
+        
         if language == 'ru':
-            await message.answer("❌ Пожалуйста, выберите регион из списка")
+            welcome_text = f"✅ Регистрация завершена! Выберите действие:"
         else:
-            await message.answer("❌ Iltimos, ro'yxatdan viloyatni tanlang")
+            welcome_text = f"✅ Ro'yxatdan o'tish yakunlandi! Harakatni tanlang:"
+        
+        await message.answer(welcome_text, reply_markup=get_main_menu(language))
         return
     
-    user_sessions[user_id]['step'] = 'location'
-    user_sessions[user_id]['region'] = selected_region
-    
-    save_user(user_id, session['phone'], session['name'], language, selected_region)
-    
-    if selected_region == 'tashkent':
-        await message.answer(get_text('location_request_tashkent', language), 
-                           reply_markup=get_location_keyboard(language))
-    else:
-        # Для других регионов отправляем информацию о почтовых отделениях
-        post_info = get_post_offices_info(selected_region, language)
-        await message.answer(post_info)
-        
-        if language == 'ru':
-            await message.answer("📍 После выбора отделения отправьте свою геолокацию или напишите название отделения:")
-        else:
-            await message.answer("📍 Bo'limni tanlaganingizdan so'ng, o'zingizning geolokatsiyangizni yuboring yoki bo'lim nomini yozing:")
-        
-        user_sessions[user_id]['waiting_location'] = True
-
-# ПОЛУЧЕНИЕ ЛОКАЦИИ ИЛИ НАЗВАНИЯ ОТДЕЛЕНИЯ
-@dp.message(F.text)
-async def handle_location_input(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-    
-    if not session.get('waiting_location'):
-        return await handle_main_menu(message)
-    
-    language = session.get('language', 'ru')
-    location = message.text
-    
-    save_user(user_id, session['phone'], session['name'], language, session['region'], location)
-    
-    user_sessions[user_id]['step'] = 'main_menu'
-    user_sessions[user_id]['location'] = location
-    user_sessions[user_id]['waiting_location'] = False
-    
-    await message.answer(get_text('post_office_received', language), 
-                       reply_markup=get_main_menu(language))
+    # Если пользователь уже в главном меню
+    await handle_main_menu(message)
 
 # ПОЛУЧЕНИЕ ГЕОЛОКАЦИИ
 @dp.message(F.location)
@@ -816,7 +814,7 @@ async def handle_location(message: types.Message):
     await message.answer(get_text('location_received', language), 
                        reply_markup=get_main_menu(language))
 
-# ОБРАБОТКА ГЛАВНОГО МЕНЮ
+# ОБРАБОТКА ГЛАВНОГО МЕНЮ - ИСПРАВЛЕННАЯ ВЕРСИЯ
 async def handle_main_menu(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
@@ -857,8 +855,6 @@ async def handle_main_menu(message: types.Message):
         await show_reviews(message)
     elif text in ["✍️ Оставить отзыв", "✍️ Sharh qoldirish"]:
         await start_review(message)
-    elif text in ["🛒 Корзина", "🛒 Savat"]:
-        await show_cart_command(message)
     elif text in ["➕ Добавить еще товар", "➕ Yana mahsulot qo'shish"]:
         await add_more_products(message)
     elif text in ["💳 Оформить заказ", "💳 Buyurtma berish"]:
@@ -955,7 +951,7 @@ async def show_category_products(message: types.Message, category_ru: str, categ
     
     phone, name, language, region, location = user
     
-    if not location:
+    if not location and not region:
         text = "❌ Сначала укажите локацию!" if language == 'ru' else "❌ Avval manzilni ko'rsating!"
         await message.answer(text)
         return
