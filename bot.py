@@ -108,6 +108,19 @@ def setup_database():
             test_reviews
         )
     
+    # Добавляем тестовые товары если их нет
+    cursor.execute("SELECT COUNT(*) FROM products")
+    if cursor.fetchone()[0] == 0:
+        test_products = [
+            ('Форма Пахтакор 2025', 'Paxtakor Formasi 2025', 180000, 'Формы 2025/2026', '2025/2026 Formalari', '', 'Официальная форма ФК Пахтакор', 'Rasmiy Paxtakor FK formasi', 'S, M, L, XL', 'S, M, L, XL'),
+            ('Ретро форма Навбахор', 'Navbahor Retro Formasi', 150000, 'Ретро', 'Retro', '', 'Ретро форма 90-х годов', '90-yillarning retro formasi', 'S, M, L, XL', 'S, M, L, XL'),
+            ('Бутсы Nike Mercurial', 'Nike Mercurial Futbolka', 220000, 'Бутсы', 'Futbolkalar', '', 'Профессиональные футбольные бутсы', 'Professional futbolkalar', '40, 41, 42, 43, 44', '40, 41, 42, 43, 44'),
+        ]
+        cursor.executemany(
+            "INSERT INTO products (name_ru, name_uz, price, category_ru, category_uz, image_url, description_ru, description_uz, sizes_ru, sizes_uz) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            test_products
+        )
+    
     conn.commit()
     conn.close()
     print("✅ База данных готова")
@@ -151,45 +164,189 @@ POST_OFFICES = {
         'ru': [
             '📮 Чиланзарское ОПС', '📮 Юнусабадское ОПС', '📮 Мирзо-Улугбекское ОПС',
             '📮 Шайхантахурское ОПС', '📮 Алмазарское ОПС', '📮 Яккасарайское ОПС',
-            '📮 Сергелийское ОПС', '📮 Бектемирское ОПС'
+            '📮 Сергелийское ОПС', '📮 Бектемирское ОПС', '📮 ОПС Мирабад',
+            '📮 ОПС Хамза', '📮 ОПС Куйлюк', '📮 ОПС Каракамыш'
         ],
         'uz': [
             '📮 Chilanzar OПХ', '📮 Yunusobod OПХ', '📮 Mirzo-Ulugʻbek OПХ',
             '📮 Shayxontohur OПХ', '📮 Olmazar OПХ', '📮 Yakkasaroy OПХ',
-            '📮 Sergeli OПХ', '📮 Bektemir OПХ'
+            '📮 Sergeli OПХ', '📮 Bektemir OПХ', '📮 Mirabad OПХ',
+            '📮 Hamza OПХ', '📮 Quyliq OПХ', '📮 Qoraqamish OПХ'
         ]
     },
     'samarkand': {
-        'ru': ['📮 Самаркандское ОПС', '📮 ОПС Сиаб', '📮 ОПС Регистан'],
-        'uz': ['📮 Samarqand OПХ', '📮 Siob OПХ', '📮 Registon OПХ']
+        'ru': [
+            '📮 Самаркандское ОПС', '📮 ОПС Сиаб', '📮 ОПС Регистан',
+            '📮 ОПС Булунгур', '📮 ОПС Джамбай', '📮 ОПС Иштыхан',
+            '📮 ОПС Каттакурган', '📮 ОПС Нуробад', '📮 ОПС Пайарык',
+            '📮 ОПС Пастдаргом', '📮 ОПС Пахтачи', '📮 ОПС Тайлак',
+            '📮 ОПС Ургут'
+        ],
+        'uz': [
+            '📮 Samarqand OПХ', '📮 Siob OПХ', '📮 Registon OПХ',
+            '📮 Bulungʻur OПХ', '📮 Jomboy OПХ', '📮 Ishtixon OПХ',
+            '📮 Kattaqoʻrgʻon OПХ', '📮 Nurobod OПХ', '📮 Payariq OПХ',
+            '📮 Pastdargʻom OПХ', '📮 Paxtachi OПХ', '📮 Tayloq OПХ',
+            '📮 Urgut OПХ'
+        ]
     },
     'andijan': {
-        'ru': ['📮 Андижанское ОПС', '📮 ОПС Ахунбабаева'],
-        'uz': ['📮 Andijon OПХ', '📮 Axunbabaeva OПХ']
+        'ru': [
+            '📮 Андижанское ОПС', '📮 ОПС Асака', '📮 ОПС Баликчи',
+            '📮 ОПС Боз', '📮 ОПС Булакбаши', '📮 ОПС Джалакудук',
+            '📮 ОПС Избаскан', '📮 ОПС Кургантепа', '📮 ОПС Мархамат',
+            '📮 ОПС Олтинкул', '📮 ОПС Пахтаобад', '📮 ОПС Улугнор',
+            '📮 ОПС Ходжаабад', '📮 ОПС Шахрихан'
+        ],
+        'uz': [
+            '📮 Andijon OПХ', '📮 Asaka OПХ', '📮 Baliqchi OПХ',
+            '📮 Boʻz OПХ', '📮 Buloqboshi OПХ', '📮 Jalaquduq OПХ',
+            '📮 Izboskan OПХ', '📮 Qoʻrgʻontepa OПХ', '📮 Marhamat OПХ',
+            '📮 Oltinkoʻl OПХ', '📮 Paxtaobod OПХ', '📮 Ulugʻnor OПХ',
+            '📮 Xoʻjaobod OПХ', '📮 Shahrixon OПХ'
+        ]
     },
     'bukhara': {
-        'ru': ['📮 Бухарское ОПС', '📮 ОПС Бахауддин'],
-        'uz': ['📮 Buxoro OПХ', '📮 Bahouddin OПХ']
+        'ru': [
+            '📮 Бухарское ОПС', '📮 ОПС Алат', '📮 ОПС Вабкент',
+            '📮 ОПС Газли', '📮 ОПС Гиждуван', '📮 ОПС Жондор',
+            '📮 ОПС Каракуль', '📮 ОПС Караулбазар', '📮 ОПС Пешку',
+            '📮 ОПС Ромитан', '📮 ОПС Шафиркан'
+        ],
+        'uz': [
+            '📮 Buxoro OПХ', '📮 Olot OПХ', '📮 Vobkent OПХ',
+            '📮 Gʻazli OПХ', '📮 Gʻijduvon OПХ', '📮 Jondor OПХ',
+            '📮 Qorakoʻl OПХ', '📮 Qorovulbozor OПХ', '📮 Peshku OПХ',
+            '📮 Romitan OПХ', '📮 Shofirkon OПХ'
+        ]
     },
     'fergana': {
-        'ru': ['📮 Ферганское ОПС', '📮 ОПС Маргилан'],
-        'uz': ['📮 Fargʻona OПХ', '📮 Margʻilon OПХ']
+        'ru': [
+            '📮 Ферганское ОПС', '📮 ОПС Алтыарык', '📮 ОПС Багдад',
+            '📮 ОПС Бешарык', '📮 ОПС Бувайда', '📮 ОПС Дангара',
+            '📮 ОПС Кува', '📮 ОПС Кувасай', '📮 ОПС Маргилан',
+            '📮 ОПС Риштан', '📮 ОПС Сах', '📮 ОПС Ташлак',
+            '📮 ОПС Учкуприк', '📮 ОПС Узбекистан', '📮 ОПС Фуркат',
+            '📮 ОПС Язъяван'
+        ],
+        'uz': [
+            '📮 Fargʻona OПХ', '📮 Oltiariq OПХ', '📮 Bagʻdod OПХ',
+            '📮 Beshariq OПХ', '📮 Buvayda OПХ', '📮 Dangʻara OПХ',
+            '📮 Quva OПХ', '📮 Quvasoy OПХ', '📮 Margʻilon OПХ',
+            '📮 Rishton OПХ', '📮 Soʻx OПХ', '📮 Toshloq OПХ',
+            '📮 Uchkoʻprik OПХ', '📮 Oʻzbekiston OПХ', '📮 Furqat OПХ',
+            '📮 Yozyovon OПХ'
+        ]
     },
     'namangan': {
-        'ru': ['📮 Наманганское ОПС', '📮 ОПС Чуст'],
-        'uz': ['📮 Namangan OПХ', '📮 Chust OПХ']
-    },
-    'navoi': {
-        'ru': ['📮 Навоийское ОПС', '📮 ОПС Зарафшан'],
-        'uz': ['📮 Navoiy OПХ', '📮 Zarafshon OПХ']
+        'ru': [
+            '📮 Наманганское ОПС', '📮 ОПС Косонсой', '📮 ОПС Мингбулак',
+            '📮 ОПС Норин', '📮 ОПС Поп', '📮 ОПС Торакурган',
+            '📮 ОПС Уйчи', '📮 ОПС Учкурган', '📮 ОПС Чартак',
+            '📮 ОПС Чуст', '📮 ОПС Янгикурган'
+        ],
+        'uz': [
+            '📮 Namangan OПХ', '📮 Kosonsoy OПХ', '📮 Mingbuloq OПХ',
+            '📮 Norin OПХ', '📮 Pop OПХ', '📮 Toʻraqoʻrgʻon OПХ',
+            '📮 Uychi OПХ', '📮 Uchqoʻrgʻon OПХ', '📮 Chortoq OПХ',
+            '📮 Chust OПХ', '📮 Yangiqoʻrgʻon OПХ'
+        ]
     },
     'jizzakh': {
-        'ru': ['📮 Джизакское ОПС'],
-        'uz': ['📮 Jizzax OПХ']
+        'ru': [
+            '📮 Джизакское ОПС', '📮 ОПС Арнасай', '📮 ОПС Бахмат',
+            '📮 ОПС Гагарин', '📮 ОПС Дустлик', '📮 ОПС Зафарабад',
+            '📮 ОПС Замин', '📮 ОПС Мирзачул', '📮 ОПС Пахтакор',
+            '📮 ОПС Фариш', '📮 ОПС Янгиабад'
+        ],
+        'uz': [
+            '📮 Jizzax OПХ', '📮 Arnasoy OПХ', '📮 Baxmal OПХ',
+            '📮 Gagarin OПХ', '📮 Doʻstlik OПХ', '📮 Zafarobod OПХ',
+            '📮 Zomin OПХ', '📮 Mirzachoʻl OПХ', '📮 Paxtakor OПХ',
+            '📮 Farish OПХ', '📮 Yangiobod OПХ'
+        ]
+    },
+    'kashkadarya': {
+        'ru': [
+            '📮 Каршинское ОПС', '📮 ОПС Гузар', '📮 ОПС Дехканабад',
+            '📮 ОПС Камаши', '📮 ОПС Карши', '📮 ОПС Китаб',
+            '📮 ОПС Миришкор', '📮 ОПС Мубарек', '📮 ОПС Нишан',
+            '📮 ОПС Чиракчи', '📮 ОПС Шахрисабз', '📮 ОПС Яккабаг'
+        ],
+        'uz': [
+            '📮 Qarshi OПХ', '📮 Gʻuzor OПХ', '📮 Dehqonobod OПХ',
+            '📮 Qamashi OПХ', '📮 Qarshi OПХ', '📮 Kitob OПХ',
+            '📮 Mirishkor OПХ', '📮 Muborak OПХ', '📮 Nishon OПХ',
+            '📮 Chiroqchi OПХ', '📮 Shahrisabz OПХ', '📮 Yakkabogʻ OПХ'
+        ]
+    },
+    'khorezm': {
+        'ru': [
+            '📮 Ургенчское ОПС', '📮 ОПС Багат', '📮 ОПС Гурлен',
+            '📮 ОПС Кошкупыр', '📮 ОПС Питнак', '📮 ОПС Тупроқкала',
+            '📮 ОПС Ургенч', '📮 ОПС Хазарасп', '📮 ОПС Ханка',
+            '📮 ОПС Хива', '📮 ОПС Шават', '📮 ОПС Янгиарык',
+            '📮 ОПС Янгибазар'
+        ],
+        'uz': [
+            '📮 Urganch OПХ', '📮 Bogʻot OПХ', '📮 Gurlan OПХ',
+            '📮 Qoʻshkoʻpir OПХ', '📮 Pitnak OПХ', '📮 Tuproqqala OПХ',
+            '📮 Urganch OПХ', '📮 Xazorasp OПХ', '📮 Xonqa OПХ',
+            '📮 Xiva OПХ', '📮 Shovot OПХ', '📮 Yangiariq OПХ',
+            '📮 Yangibozor OПХ'
+        ]
+    },
+    'navoi': {
+        'ru': [
+            '📮 Навоийское ОПС', '📮 ОПС Зарафшан', '📮 ОПС Кармана',
+            '📮 ОПС Кызылтепа', '📮 ОПС Навбахор', '📮 ОПС Нурата',
+            '📮 ОПС Тамдыбулак', '📮 ОПС Учкудук', '📮 ОПС Хатырчи'
+        ],
+        'uz': [
+            '📮 Navoiy OПХ', '📮 Zarafshon OПХ', '📮 Karmana OПХ',
+            '📮 Qiziltepa OПХ', '📮 Navbaxor OПХ', '📮 Nurota OПХ',
+            '📮 Tomdibuloq OПХ', '📮 Uchquduq OПХ', '📮 Xatirchi OПХ'
+        ]
+    },
+    'surkhandarya': {
+        'ru': [
+            '📮 Термезское ОПС', '📮 ОПС Ангор', '📮 ОПС Байсун',
+            '📮 ОПС Денау', '📮 ОПС Жаркурган', '📮 ОПС Кумкурган',
+            '📮 ОПС Музрабад', '📮 ОПС Сариасия', '📮 ОПС Термез',
+            '📮 ОПС Узун', '📮 ОПС Шерабад', '📮 ОПС Шурчи'
+        ],
+        'uz': [
+            '📮 Termiz OПХ', '📮 Angor OПХ', '📮 Boysun OПХ',
+            '📮 Denov OПХ', '📮 Jarqoʻrgʻon OПХ', '📮 Qumqoʻrgʻon OПХ',
+            '📮 Muzrabot OПХ', '📮 Sariosiyo OПХ', '📮 Termiz OПХ',
+            '📮 Uzun OПХ', '📮 Sherobod OПХ', '📮 Shoʻrchi OПХ'
+        ]
+    },
+    'syrdarya': {
+        'ru': [
+            '📮 Гулистанское ОПС', '📮 ОПС Акалтын', '📮 ОПС Бахт',
+            '📮 ОПС Гулистан', '📮 ОПС Мирзаабад', '📮 ОПС Сайхунобад',
+            '📮 ОПС Сардоба', '📮 ОПС Сырдарья', '📮 ОПС Хаваст'
+        ],
+        'uz': [
+            '📮 Guliston OПХ', '📮 Oqoltin OПХ', '📮 Baxt OПХ',
+            '📮 Guliston OПХ', '📮 Mirzaobod OПХ', '📮 Sayxunobod OПХ',
+            '📮 Sardoba OПХ', '📮 Sirdaryo OПХ', '📮 Xovos OПХ'
+        ]
     },
     'karakalpakstan': {
-        'ru': ['📮 Нукусское ОПС', '📮 ОПС Ходжейли'],
-        'uz': ['📮 Nukus OПХ', '📮 Xoʻjayli OПХ']
+        'ru': [
+            '📮 Нукусское ОПС', '📮 ОПС Амударья', '📮 ОПС Беруний',
+            '📮 ОПС Кегейли', '📮 ОПС Кунград', '📮 ОПС Муйнак',
+            '📮 ОПС Нукус', '📮 ОПС Тахтакупыр', '📮 ОПС Турткуль',
+            '📮 ОПС Ходжейли', '📮 ОПС Чимбай', '📮 ОПС Шуманай'
+        ],
+        'uz': [
+            '📮 Nukus OПХ', '📮 Amudaryo OПХ', '📮 Beruniy OПХ',
+            '📮 Kegeyli OПХ', '📮 Qoʻngʻirot OПХ', '📮 Moʻynoq OПХ',
+            '📮 Nukus OПХ', '📮 Taxtakoʻpir OПХ', '📮 Toʻrtkoʻl OПХ',
+            '📮 Xoʻjayli OПХ', '📮 Chimboy OПХ', '📮 Shumanay OПХ'
+        ]
     }
 }
 
@@ -244,16 +401,13 @@ def get_contact_keyboard(language):
         one_time_keyboard=True
     )
 
-def get_phone_confirmation_keyboard(language):
-    builder = ReplyKeyboardBuilder()
-    if language == 'ru':
-        builder.add(KeyboardButton(text="✅ Да, это мой номер"))
-        builder.add(KeyboardButton(text="❌ Нет, изменить номер"))
-    else:
-        builder.add(KeyboardButton(text="✅ Ha, bu mening raqamim"))
-        builder.add(KeyboardButton(text="❌ Yoʻq, raqamni oʻzgartirish"))
-    builder.adjust(2)
-    return builder.as_markup(resize_keyboard=True)
+def get_phone_input_keyboard(language):
+    text = "📱 Ввести номер вручную" if language == 'ru' else "📱 Raqamni qo'lda kiritish"
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=text)]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
 
 def get_region_keyboard(language):
     builder = ReplyKeyboardBuilder()
@@ -283,21 +437,36 @@ def get_main_menu(language):
     builder = ReplyKeyboardBuilder()
     
     if language == 'ru':
+        builder.add(KeyboardButton(text="🛍️ Каталог"))
+        builder.add(KeyboardButton(text="⭐ Мнения клиентов"))
+        builder.add(KeyboardButton(text="🛒 Корзина"))
+        builder.add(KeyboardButton(text="📦 Мои заказы"))
+        builder.add(KeyboardButton(text="ℹ️ Помощь"))
+    else:
+        builder.add(KeyboardButton(text="🛍️ Katalog"))
+        builder.add(KeyboardButton(text="⭐ Mijozlar fikri"))
+        builder.add(KeyboardButton(text="🛒 Savat"))
+        builder.add(KeyboardButton(text="📦 Mening buyurtmalarim"))
+        builder.add(KeyboardButton(text="ℹ️ Yordam"))
+    
+    builder.adjust(2, 2, 1)
+    return builder.as_markup(resize_keyboard=True)
+
+def get_catalog_keyboard(language):
+    builder = ReplyKeyboardBuilder()
+    
+    if language == 'ru':
         builder.add(KeyboardButton(text="👕 Формы"))
         builder.add(KeyboardButton(text="⚽ Бутсы")) 
         builder.add(KeyboardButton(text="🔥 Акции"))
-        builder.add(KeyboardButton(text="⭐ Отзывы"))
-        builder.add(KeyboardButton(text="🛒 Корзина"))
-        builder.add(KeyboardButton(text="ℹ️ Помощь"))
+        builder.add(KeyboardButton(text="↩️ Назад"))
     else:
         builder.add(KeyboardButton(text="👕 Formalar"))
-        builder.add(KeyboardButton(text="⚽ Futbolkalar")) 
+        builder.add(KeyboardButton(text="⚽ Futbolkalar"))
         builder.add(KeyboardButton(text="🔥 Aksiyalar"))
-        builder.add(KeyboardButton(text="⭐ Sharhlar"))
-        builder.add(KeyboardButton(text="🛒 Savat"))
-        builder.add(KeyboardButton(text="ℹ️ Yordam"))
+        builder.add(KeyboardButton(text="↩️ Orqaga"))
     
-    builder.adjust(2, 2, 2)
+    builder.adjust(2, 2)
     return builder.as_markup(resize_keyboard=True)
 
 def get_forms_submenu(language):
@@ -354,7 +523,7 @@ def get_cart_keyboard(language):
         builder.add(KeyboardButton(text="🛒 Корзина"))
         builder.add(KeyboardButton(text="➕ Добавить еще товар"))
         builder.add(KeyboardButton(text="💳 Оформить заказ"))
-        builder.add(KeyboardButton(text="🗑️ Очистить корзина"))
+        builder.add(KeyboardButton(text="🗑️ Очистить корзину"))
         builder.add(KeyboardButton(text="🔙 Главное меню"))
     else:
         builder.add(KeyboardButton(text="🛒 Savat"))
@@ -419,12 +588,16 @@ def get_text(key, language):
             'uz': "👋 FootballKits.uz ga xush kelibsiz!\n\nTilni tanlang:"
         },
         'contact_request': {
-            'ru': "📞 Для продолжения поделитесь контактом:",
-            'uz': "📞 Davom etish uchun kontaktni ulashing:"
+            'ru': "📞 Для продолжения поделитесь контактом или введите номер вручную:",
+            'uz': "📞 Davom etish uchun kontaktni ulashing yoki raqamni qo'lda kiriting:"
+        },
+        'manual_phone_request': {
+            'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567",
+            'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567"
         },
         'phone_confirmation': {
-            'ru': "📱 Это ваш основной номер? Подтверждая эту информацию, вы соглашаетесь, что почта будет отправлена исключительно на этот номер для получения SMS от почтовой службы.",
-            'uz': "📱 Bu sizning asosiy raqamingizmi? Ushbu maʼlumotni tasdiqlasangiz, pochta xizmatidan SMS olish uchun pochta faqat shu raqamga yuborilishiga rozilik bildirasiz."
+            'ru': "📱 Это ваш основной номер?",
+            'uz': "📱 Bu sizning asosiy raqamingizmi?"
         },
         'region_request': {
             'ru': "🏙️ Выберите ваш регион для доставки:",
@@ -442,6 +615,10 @@ def get_text(key, language):
             'ru': "✅ Контакт получен!",
             'uz': "✅ Kontakt qabul qilindi!"
         },
+        'phone_received': {
+            'ru': "✅ Номер получен!",
+            'uz': "✅ Raqam qabul qilindi!"
+        },
         'location_received': {
             'ru': "✅ Локация получена! Теперь вы можете выбирать товары:",
             'uz': "✅ Manzil qabul qilindi! Endi mahsulotlarni tanlashingiz mumkin:"
@@ -451,8 +628,8 @@ def get_text(key, language):
             'uz': "✅ Boʻlim tanlandi! Endi mahsulotlarni tanlashingiz mumkin:"
         },
         'help_text': {
-            'ru': "🤝 Помощь\n\n📞 Обратная связь: +998974555582 +998881111081\n📍 Адрес: Ташкент, м.Новза\n⏰ Время работы: 9:00-23:00\n\n💬 Задайте ваш вопрос:",
-            'uz': "🤝 Yordam\n\n📞 Qo'llab-quvvatlash: +998974555582 +998881111081\n📍 Manzil: Toshkent, Novza metrosi\n⏰ Ish vaqti: 9:00-23:00\n\n💬 Savolingizni bering:"
+            'ru': "🤝 Помощь\n\n📞 Телефон: +998 88 111-10-81\n📞 Телефон: +998 97 455-55-82\n📍 Адрес: Ташкент, м. Новза\n⏰ Время работы: 9:00-23:00\n\n💬 Задайте ваш вопрос:",
+            'uz': "🤝 Yordam\n\n📞 Telefon: +998 88 111-10-81\n📞 Telefon: +998 97 455-55-82\n📍 Manzil: Toshkent, Novza metrosi\n⏰ Ish vaqti: 9:00-23:00\n\n💬 Savolingizni bering:"
         },
         'choose_size': {
             'ru': "📏 Выберите размер:",
@@ -659,7 +836,56 @@ async def handle_language(message: types.Message):
     language = 'ru' if message.text == "🇷🇺 Русский" else 'uz'
     
     user_sessions[user_id] = {'step': 'contact', 'language': language}
-    await message.answer(get_text('contact_request', language), reply_markup=get_contact_keyboard(language))
+    await message.answer(get_text('contact_request', language), 
+                       reply_markup=ReplyKeyboardMarkup(
+                           keyboard=[
+                               [KeyboardButton(text="📞 Отправить контакт" if language == 'ru' else "📞 Kontaktni yuborish", request_contact=True)],
+                               [KeyboardButton(text="📱 Ввести номер вручную" if language == 'ru' else "📱 Raqamni qo'lda kiritish")]
+                           ],
+                           resize_keyboard=True,
+                           one_time_keyboard=True
+                       ))
+
+# РУЧНОЙ ВВОД НОМЕРА
+@dp.message(F.text.in_(["📱 Ввести номер вручную", "📱 Raqamni qo'lda kiritish"]))
+async def handle_manual_phone_request(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    
+    if session.get('step') != 'contact':
+        return
+    
+    language = session.get('language', 'ru')
+    user_sessions[user_id]['step'] = 'manual_phone'
+    
+    await message.answer(get_text('manual_phone_request', language), reply_markup=get_back_menu(language))
+
+# ОБРАБОТКА РУЧНОГО ВВОДА НОМЕРА
+@dp.message(F.text.startswith('+'))
+async def handle_manual_phone_input(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    
+    if session.get('step') != 'manual_phone':
+        return await handle_text_messages(message)
+    
+    language = session.get('language', 'ru')
+    phone = message.text.strip()
+    
+    # Простая валидация номера
+    if not phone.startswith('+998') or len(phone) != 13 or not phone[1:].isdigit():
+        if language == 'ru':
+            await message.answer("❌ Неверный формат номера. Введите в формате: +998901234567")
+        else:
+            await message.answer("❌ Noto'g'ri raqam formati. Formatda kiriting: +998901234567")
+        return
+    
+    user_sessions[user_id]['step'] = 'region'
+    user_sessions[user_id]['phone'] = phone
+    user_sessions[user_id]['name'] = message.from_user.first_name or "Пользователь"
+    
+    await message.answer(get_text('phone_received', language))
+    await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
 
 # ПОЛУЧЕНИЕ КОНТАКТА
 @dp.message(F.contact)
@@ -674,34 +900,14 @@ async def handle_contact(message: types.Message):
     phone = message.contact.phone_number
     name = message.contact.first_name
     
-    user_sessions[user_id]['step'] = 'phone_confirmation'
+    # Сразу сохраняем пользователя и переходим к выбору региона
+    save_user(user_id, phone, name, language)
+    user_sessions[user_id]['step'] = 'region'
     user_sessions[user_id]['phone'] = phone
     user_sessions[user_id]['name'] = name
     
     await message.answer(get_text('contact_received', language))
-    await message.answer(get_text('phone_confirmation', language), reply_markup=get_phone_confirmation_keyboard(language))
-
-# ПОДТВЕРЖДЕНИЕ НОМЕРА
-@dp.message(F.text.in_(["✅ Да, это мой номер", "✅ Ha, bu mening raqamim", "❌ Нет, изменить номер", "❌ Yoʻq, raqamni oʻzgartirish"]))
-async def handle_phone_confirmation(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-    
-    if session.get('step') != 'phone_confirmation':
-        return
-    
-    language = session.get('language', 'ru')
-    phone = session.get('phone')
-    name = session.get('name')
-    
-    if message.text in ["✅ Да, это мой номер", "✅ Ha, bu mening raqamim"]:
-        save_user(user_id, phone, name, language)
-        user_sessions[user_id]['step'] = 'region'
-        
-        await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
-    else:
-        user_sessions[user_id]['step'] = 'contact'
-        await message.answer(get_text('contact_request', language), reply_markup=get_contact_keyboard(language))
+    await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
 
 # ВЫБОР РЕГИОНА
 @dp.message(F.text)
@@ -784,6 +990,62 @@ async def handle_location(message: types.Message):
 
 # ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ
 async def handle_text_messages(message: types.Message):
+    user_id = message.from_user.id
+    user = get_user(user_id)
+    
+    if not user:
+        await message.answer("❌ Сначала завершите регистрацию через /start")
+        return
+    
+    phone, name, language, region, location = user
+    text = message.text
+    
+    # Обработка кнопок главного меню
+    if text in ["🛍️ Каталог", "🛍️ Katalog"]:
+        await show_catalog(message)
+    elif text in ["⭐ Мнения клиентов", "⭐ Mijozlar fikri"]:
+        await show_reviews_menu(message)
+    elif text in ["🛒 Корзина", "🛒 Savat"]:
+        await show_cart_command(message)
+    elif text in ["📦 Мои заказы", "📦 Mening buyurtmalarim"]:
+        await show_my_orders(message)
+    elif text in ["ℹ️ Помощь", "ℹ️ Yordam"]:
+        await show_help(message)
+    elif text in ["👕 Формы", "👕 Formalar"]:
+        await show_forms_menu(message)
+    elif text in ["⚽ Бутсы", "⚽ Futbolkalar"]:
+        await show_boots(message)
+    elif text in ["🔥 Акции", "🔥 Aksiyalar"]:
+        await show_sales(message)
+    elif text in ["↩️ Назад", "↩️ Orqaga"]:
+        await back_to_main_menu(message)
+    elif text in ["❌ Отмена", "❌ Bekor qilish"]:
+        await handle_cancel(message)
+    else:
+        # Проверяем, не является ли сообщение номером товара
+        if text.isdigit():
+            await handle_product_selection(message)
+        else:
+            await message.answer("❌ Не понимаю команду. Используйте кнопки меню." if language == 'ru' else "❌ Buyruqni tushunmayman. Menyu tugmalaridan foydalaning.", 
+                               reply_markup=get_main_menu(language))
+
+async def handle_cancel(message: types.Message):
+    user_id = message.from_user.id
+    user = get_user(user_id)
+    if user:
+        language = user[2]
+        if user_id in user_selections:
+            del user_selections[user_id]
+        if user_id in user_sessions:
+            user_sessions[user_id].pop('waiting_receipt', None)
+            user_sessions[user_id].pop('waiting_customization_text', None)
+        
+        await message.answer(get_text('order_cancelled', language), 
+                           reply_markup=get_main_menu(language))
+
+# КАТАЛОГ
+@dp.message(F.text.in_(["🛍️ Каталог", "🛍️ Katalog"]))
+async def show_catalog(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
         await message.answer("❌ Сначала завершите регистрацию через /start")
@@ -791,18 +1053,12 @@ async def handle_text_messages(message: types.Message):
     
     phone, name, language, region, location = user
     
-    if message.text in ["❌ Отмена", "❌ Bekor qilish"]:
-        if message.from_user.id in user_selections:
-            del user_selections[message.from_user.id]
-        if message.from_user.id in user_sessions:
-            user_sessions[message.from_user.id].pop('waiting_receipt', None)
-        
-        await message.answer(get_text('order_cancelled', language), 
-                           reply_markup=get_main_menu(language))
-        return
+    if language == 'ru':
+        text = "🛍️ Выберите категорию:"
+    else:
+        text = "🛍️ Toifani tanlang:"
     
-    await message.answer("❌ Не понимаю команду. Используйте кнопки меню.", 
-                       reply_markup=get_main_menu(language))
+    await message.answer(text, reply_markup=get_catalog_keyboard(language))
 
 # КАТЕГОРИИ ТОВАРОВ
 @dp.message(F.text.in_(["👕 Формы", "👕 Formalar"]))
@@ -1165,6 +1421,7 @@ async def handle_payment(message: types.Message):
         total_price = sum(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0) for item in cart)
         
         if is_card:
+            order_ids = []
             for item in cart:
                 order_id = save_order(
                     message.from_user.id, phone, name, region, location,
@@ -1174,6 +1431,7 @@ async def handle_payment(message: types.Message):
                     item.get('customization', {}).get('price', 0) if item.get('customization') else 0,
                     'card_pending'
                 )
+                order_ids.append(order_id)
             
             if language == 'ru':
                 text = (
@@ -1198,14 +1456,7 @@ async def handle_payment(message: types.Message):
             
             await message.answer(text, parse_mode='HTML')
             user_sessions[message.from_user.id]['waiting_receipt'] = True
-            user_sessions[message.from_user.id]['order_ids'] = [save_order(
-                message.from_user.id, phone, name, region, location,
-                item['product_name'], item['product_price'],
-                item.get('size'),
-                item.get('customization', {}).get('text') if item.get('customization') else None,
-                item.get('customization', {}).get('price', 0) if item.get('customization') else 0,
-                'card_pending'
-            ) for item in cart]
+            user_sessions[message.from_user.id]['order_ids'] = order_ids
                 
         else:
             for item in cart:
@@ -1470,7 +1721,7 @@ async def handle_admin_reply(message: types.Message):
             
             language = request['language']
             
-            # Пока без ИИ
+            # УБИРАЕМ ИИ - просто отправляем ответ как есть
             improved_response = admin_response
             
             if language == 'ru':
@@ -1755,7 +2006,7 @@ async def handle_quick_product_creation(message: types.Message):
         del admin_product_creation[message.from_user.id]
 
 # СИСТЕМА ОТЗЫВОВ
-@dp.message(F.text.in_(["⭐ Отзывы", "⭐ Sharhlar"]))
+@dp.message(F.text.in_(["⭐ Мнения клиентов", "⭐ Mijozlar fikri"]))
 async def show_reviews_menu(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -2040,7 +2291,7 @@ async def main():
         print(f"💳 Карта для оплаты: {CARD_NUMBER}")
         print("⭐ Система отзывов готова!")
         print("🛍️ Админ-панель для создания товаров активирована!")
-        print("📱 Регистрация через контакт")
+        print("📱 Регистрация через контакт или ручной ввод номера")
         await dp.start_polling(bot)
     except Exception as e:
         logging.error(f"Ошибка: {e}")
