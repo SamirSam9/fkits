@@ -322,11 +322,11 @@ def get_reviews_menu(language):
     if language == 'ru':
         builder.add(KeyboardButton(text="⭐ Посмотреть отзывы"))
         builder.add(KeyboardButton(text="✍️ Оставить отзыв"))
-        builder.add(KeyboardButton(text="🔙 Назад"))
+        builder.add(KeyboardButton(text="↩️ Назад"))
     else:
         builder.add(KeyboardButton(text="⭐ Sharhlarni ko'rish"))
         builder.add(KeyboardButton(text="✍️ Sharh qoldirish"))
-        builder.add(KeyboardButton(text="🔙 Orqaga"))
+        builder.add(KeyboardButton(text="↩️ Orqaga"))
     builder.adjust(2, 1)
     return builder.as_markup(resize_keyboard=True)
 
@@ -666,6 +666,142 @@ Eng yaqin bo'limni tanlang va buyurtma berishda bizga xabar bering."""
 • 📍 Xonobod OПХ
   🗺️ Yandex: https://yandex.uz/maps/10337/andijan/?ll=72.3647%2C40.8021&z=13
   🗺️ Google: https://goo.gl/maps/example8"""
+        },
+        'bukhara': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ БУХАРЫ:
+
+• 📍 Бухарское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10338/bukhara/?ll=64.4557%2C39.7757&z=13
+  🗺️ Google: https://goo.gl/maps/example9
+
+• 📍 ОПС Гиждуван
+  🗺️ Яндекс: https://yandex.uz/maps/10338/bukhara/?ll=64.4757%2C39.7957&z=13
+  🗺️ Google: https://goo.gl/maps/example10""",
+            'uz': """📮 BUXORO Pochta Bo'limlari:
+
+• 📍 Buxoro OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10338/bukhara/?ll=64.4557%2C39.7757&z=13
+  🗺️ Google: https://goo.gl/maps/example9
+
+• 📍 G'ijduvon OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10338/bukhara/?ll=64.4757%2C39.7957&z=13
+  🗺️ Google: https://goo.gl/maps/example10"""
+        },
+        'fergana': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ФЕРГАНЫ:
+
+• 📍 Ферганское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10339/fergana/?ll=71.7847%2C40.3864&z=13
+  🗺️ Google: https://goo.gl/maps/example11
+
+• 📍 ОПС Маргилан
+  🗺️ Яндекс: https://yandex.uz/maps/10339/fergana/?ll=71.8047%2C40.4064&z=13
+  🗺️ Google: https://goo.gl/maps/example12""",
+            'uz': """📮 FARG'ONA Pochta Bo'limlari:
+
+• 📍 Farg'ona OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10339/fergana/?ll=71.7847%2C40.3864&z=13
+  🗺️ Google: https://goo.gl/maps/example11
+
+• 📍 Marg'ilon OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10339/fergana/?ll=71.8047%2C40.4064&z=13
+  🗺️ Google: https://goo.gl/maps/example12"""
+        },
+        'jizzakh': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ДЖИЗАКА:
+
+• 📍 Джизакское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10340/jizzakh/?ll=67.8422%2C40.1158&z=13
+  🗺️ Google: https://goo.gl/maps/example13""",
+            'uz': """📮 JIZZAX Pochta Bo'limlari:
+
+• 📍 Jizzax OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10340/jizzakh/?ll=67.8422%2C40.1158&z=13
+  🗺️ Google: https://goo.gl/maps/example13"""
+        },
+        'kashkadarya': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ КАШКАДАРЬИ:
+
+• 📍 Каршинское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10341/karshi/?ll=65.7931%2C38.8611&z=13
+  🗺️ Google: https://goo.gl/maps/example14""",
+            'uz': """📮 QASHQADARYO Pochta Bo'limlari:
+
+• 📍 Qarshi OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10341/karshi/?ll=65.7931%2C38.8611&z=13
+  🗺️ Google: https://goo.gl/maps/example14"""
+        },
+        'khorezm': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ХОРЕЗМА:
+
+• 📍 Ургенчское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10342/urgench/?ll=60.6257%2C41.5507&z=13
+  🗺️ Google: https://goo.gl/maps/example15""",
+            'uz': """📮 XORAZM Pochta Bo'limlari:
+
+• 📍 Urganch OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10342/urgench/?ll=60.6257%2C41.5507&z=13
+  🗺️ Google: https://goo.gl/maps/example15"""
+        },
+        'namangan': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ НАМАНГАНА:
+
+• 📍 Наманганское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10343/namangan/?ll=71.6726%2C40.9983&z=13
+  🗺️ Google: https://goo.gl/maps/example16""",
+            'uz': """📮 NAMANGAN Pochta Bo'limlari:
+
+• 📍 Namangan OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10343/namangan/?ll=71.6726%2C40.9983&z=13
+  🗺️ Google: https://goo.gl/maps/example16"""
+        },
+        'navoi': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ НАВОИ:
+
+• 📍 Навоийское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10344/navoi/?ll=65.3797%2C40.0844&z=13
+  🗺️ Google: https://goo.gl/maps/example17""",
+            'uz': """📮 NAVOIY Pochta Bo'limlari:
+
+• 📍 Navoiy OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10344/navoi/?ll=65.3797%2C40.0844&z=13
+  🗺️ Google: https://goo.gl/maps/example17"""
+        },
+        'surkhandarya': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ СУРХАНДАРЬИ:
+
+• 📍 Термезское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10345/termez/?ll=67.2787%2C37.2249&z=13
+  🗺️ Google: https://goo.gl/maps/example18""",
+            'uz': """📮 SURXONDARYO Pochta Bo'limlari:
+
+• 📍 Termiz OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10345/termez/?ll=67.2787%2C37.2249&z=13
+  🗺️ Google: https://goo.gl/maps/example18"""
+        },
+        'syrdarya': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ СЫРДАРЬИ:
+
+• 📍 Гулистанское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10346/gulistan/?ll=68.7842%2C40.4897&z=13
+  🗺️ Google: https://goo.gl/maps/example19""",
+            'uz': """📮 SIRDARYO Pochta Bo'limlari:
+
+• 📍 Guliston OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10346/gulistan/?ll=68.7842%2C40.4897&z=13
+  🗺️ Google: https://goo.gl/maps/example19"""
+        },
+        'karakalpakstan': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ КАРАКАЛПАКСТАНА:
+
+• 📍 Нукусское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10347/nukus/?ll=59.6107%2C42.4587&z=13
+  🗺️ Google: https://goo.gl/maps/example20""",
+            'uz': """📮 QORAQALPOG'ISTON Pochta Bo'limlari:
+
+• 📍 Nukus OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10347/nukus/?ll=59.6107%2C42.4587&z=13
+  🗺️ Google: https://goo.gl/maps/example20"""
         }
     }
     
@@ -709,7 +845,7 @@ async def handle_manual_phone_input(message: types.Message):
     session = user_sessions.get(user_id, {})
     
     if session.get('step') != 'manual_phone':
-        return
+        return await handle_main_menu(message)
     
     language = session.get('language', 'ru')
     phone = message.text.strip()
@@ -865,13 +1001,62 @@ async def handle_main_menu(message: types.Message):
         await handle_payment(message)
     elif text in ["💵 Наличные", "💵 Naqd pul"]:
         await handle_payment(message)
+    elif text in ["✅ Да, добавить имя и номер", "✅ Ha, ism va raqam qo'shing"]:
+        await handle_customization_choice(message)
+    elif text in ["❌ Нет, без кастомизации", "❌ Yo'q, be'zashsiz"]:
+        await handle_customization_choice(message)
+    elif text in ["🔙 Назад к товарам", "🔙 Mahsulotlarga qaytish"]:
+        await back_to_catalog(message)
     else:
         # Проверяем, не является ли сообщение номером товара
         if text.isdigit():
             await handle_product_selection(message)
+        elif user_id in support_requests and support_requests[user_id].get('waiting_question'):
+            # Обработка вопроса в поддержку
+            question = message.text
+            admin_text = f"❓ ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ\n\n👤 {name} (@{message.from_user.username or 'N/A'})\n📞 {phone}\n💬 {question}"
+            await notify_admins(admin_text)
+            
+            if language == 'ru':
+                await message.answer("✅ Ваш вопрос отправлен! Мы ответим вам в ближайшее время.", reply_markup=get_main_menu(language))
+            else:
+                await message.answer("✅ Savolingiz yuborildi! Tez orada sizga javob beramiz.", reply_markup=get_main_menu(language))
+            
+            support_requests[user_id]['waiting_question'] = False
+        elif user_id in user_sessions and user_sessions[user_id].get('waiting_review'):
+            # Обработка текста отзыва
+            review_text = message.text
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO reviews (customer_name, review_text_ru, review_text_uz, rating)
+                    VALUES (?, ?, ?, ?)
+                """, (name, review_text, review_text, 5))
+                conn.commit()
+            
+            admin_text = f"📝 НОВЫЙ ОТЗЫВ\n\n👤 {name} (@{message.from_user.username or 'N/A'})\n📞 {phone}\n💬 {review_text}"
+            await notify_admins(admin_text)
+            
+            if language == 'ru':
+                await message.answer("✅ Спасибо за ваш отзыв! Мы ценим ваше мнение!", reply_markup=get_main_menu(language))
+            else:
+                await message.answer("✅ Sharhingiz uchun rahmat! Biz sizning fikringizni qadrlaymiz!", reply_markup=get_main_menu(language))
+            
+            user_sessions[user_id]['waiting_review'] = False
+        elif user_id in user_sessions and user_sessions[user_id].get('waiting_customization_text'):
+            # Обработка текста кастомизации
+            await handle_customization_text(message)
         else:
             await message.answer("❌ Не понимаю команду. Используйте кнопки меню." if language == 'ru' else "❌ Buyruqni tushunmayman. Menyu tugmalaridan foydalaning.", 
                                reply_markup=get_main_menu(language))
+
+async def back_to_catalog(message: types.Message):
+    user = get_user(message.from_user.id)
+    if not user:
+        return
+    
+    language = user[2]
+    await show_catalog(message)
 
 async def handle_cancel(message: types.Message):
     user_id = message.from_user.id
@@ -883,6 +1068,7 @@ async def handle_cancel(message: types.Message):
         if user_id in user_sessions:
             user_sessions[user_id].pop('waiting_receipt', None)
             user_sessions[user_id].pop('waiting_customization_text', None)
+            user_sessions[user_id].pop('waiting_review', None)
         
         await message.answer(get_text('order_cancelled', language), 
                            reply_markup=get_main_menu(language))
@@ -1051,7 +1237,6 @@ async def ask_customization(message: types.Message, language: str, product_name:
     
     await message.answer(text, parse_mode='HTML', reply_markup=get_customization_keyboard(language))
 
-@dp.message(F.text.in_(["✅ Да, добавить имя и номер", "✅ Ha, ism va raqam qo'shing", "❌ Нет, без кастомизации", "❌ Yo'q, be'zashsiz"]))
 async def handle_customization_choice(message: types.Message):
     user = get_user(message.from_user.id)
     if not user or message.from_user.id not in user_selections:
@@ -1071,7 +1256,7 @@ async def handle_customization_choice(message: types.Message):
             text = "✍️ Bosma uchun ism va raqamni kiriting (masalan: «RAHMON 7» yoki «ALI 9»):"
         
         await message.answer(text, reply_markup=get_back_menu(language))
-        user_sessions[message.from_user.id]['step'] = 'waiting_customization_text'
+        user_sessions[message.from_user.id]['waiting_customization_text'] = True
     else:
         selection['customization'] = None
         category = selection['category']
@@ -1083,12 +1268,11 @@ async def handle_customization_choice(message: types.Message):
         
         await message.answer(text, reply_markup=get_size_keyboard(language, category))
 
-@dp.message(F.text)
 async def handle_customization_text(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
     
-    if session.get('step') != 'waiting_customization_text':
+    if not session.get('waiting_customization_text'):
         return
     
     user = get_user(user_id)
@@ -1098,8 +1282,8 @@ async def handle_customization_text(message: types.Message):
     language = user[2]
     selection = user_selections[user_id]
     
-    selection['customization']['text'] = message.text
-    user_sessions[user_id]['step'] = None
+    selection['customization'] = {'price': CUSTOMIZATION_PRICE, 'text': message.text}
+    user_sessions[user_id]['waiting_customization_text'] = False
     
     category = selection['category']
     
@@ -1495,48 +1679,6 @@ async def start_review(message: types.Message):
     await message.answer(text)
     user_sessions[message.from_user.id] = {'waiting_review': True}
 
-@dp.message(F.text)
-async def handle_review_text(message: types.Message):
-    user_id = message.from_user.id
-    if user_id not in user_sessions or not user_sessions[user_id].get('waiting_review'):
-        return await handle_main_menu(message)
-    
-    user = get_user(user_id)
-    if not user:
-        return
-    
-    language = user[2]
-    review_text = message.text
-    
-    # Сохраняем отзыв в базу
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO reviews (customer_name, review_text_ru, review_text_uz, rating)
-            VALUES (?, ?, ?, ?)
-        """, (user[1], review_text, review_text, 5))
-        conn.commit()
-    
-    # Уведомляем админов
-    admin_text = (
-        f"📝 НОВЫЙ ОТЗЫВ\n\n"
-        f"👤 {user[1]} (@{message.from_user.username or 'N/A'})\n"
-        f"📞 {user[0]}\n"
-        f"💬 {review_text}\n\n"
-        f"✅ Чтобы добавить в канал, перешлите это сообщение в @footballkitsreview"
-    )
-    
-    await notify_admins(admin_text)
-    
-    if language == 'ru':
-        await message.answer("✅ Спасибо за ваш отзыв! Мы ценим ваше мнение!", 
-                           reply_markup=get_main_menu(language))
-    else:
-        await message.answer("✅ Sharhingiz uchun rahmat! Biz sizning fikringizni qadrlaymiz!", 
-                           reply_markup=get_main_menu(language))
-    
-    del user_sessions[user_id]['waiting_review']
-
 @dp.message(F.photo)
 async def handle_review_photo(message: types.Message):
     user_id = message.from_user.id
@@ -1576,7 +1718,7 @@ async def handle_review_photo(message: types.Message):
             await message.answer("✅ Rasmli sharh uchun rahmat! Biz sizning fikringizni qadrlaymiz!", 
                                reply_markup=get_main_menu(language))
         
-        del user_sessions[user_id]['waiting_review']
+        user_sessions[user_id]['waiting_review'] = False
 
 # МОИ ЗАКАЗЫ
 async def show_my_orders(message: types.Message):
@@ -1614,20 +1756,6 @@ async def show_my_orders(message: types.Message):
             response = "📦 Sizda hali buyurtmalar yo'q"
     
     await message.answer(response, reply_markup=get_main_menu(language))
-
-# ОБРАБОТКА ВСЕХ СООБЩЕНИЙ
-@dp.message()
-async def handle_all_messages(message: types.Message):
-    # Проверяем, не находится ли пользователь в процессе регистрации
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-    
-    if session.get('step') in ['language', 'contact', 'manual_phone', 'region', 'location']:
-        # Если пользователь в процессе регистрации, пропускаем обычную обработку
-        return
-    
-    # Обрабатываем как основное меню
-    await handle_main_menu(message)
 
 # ================== ЗАПУСК ==================
 async def main():
