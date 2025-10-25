@@ -159,225 +159,6 @@ REGIONS = {
     }
 }
 
-POST_OFFICES = {
-    'tashkent': {
-        'ru': [
-            '📮 Чиланзарское ОПС', '📮 Юнусабадское ОПС', '📮 Мирзо-Улугбекское ОПС',
-            '📮 Шайхантахурское ОПС', '📮 Алмазарское ОПС', '📮 Яккасарайское ОПС',
-            '📮 Сергелийское ОПС', '📮 Бектемирское ОПС', '📮 ОПС Мирабад',
-            '📮 ОПС Хамза', '📮 ОПС Куйлюк', '📮 ОПС Каракамыш'
-        ],
-        'uz': [
-            '📮 Chilanzar OПХ', '📮 Yunusobod OПХ', '📮 Mirzo-Ulugʻbek OПХ',
-            '📮 Shayxontohur OПХ', '📮 Olmazar OПХ', '📮 Yakkasaroy OПХ',
-            '📮 Sergeli OПХ', '📮 Bektemir OПХ', '📮 Mirabad OПХ',
-            '📮 Hamza OПХ', '📮 Quyliq OПХ', '📮 Qoraqamish OПХ'
-        ]
-    },
-    'samarkand': {
-        'ru': [
-            '📮 Самаркандское ОПС', '📮 ОПС Сиаб', '📮 ОПС Регистан',
-            '📮 ОПС Булунгур', '📮 ОПС Джамбай', '📮 ОПС Иштыхан',
-            '📮 ОПС Каттакурган', '📮 ОПС Нуробад', '📮 ОПС Пайарык',
-            '📮 ОПС Пастдаргом', '📮 ОПС Пахтачи', '📮 ОПС Тайлак',
-            '📮 ОПС Ургут'
-        ],
-        'uz': [
-            '📮 Samarqand OПХ', '📮 Siob OПХ', '📮 Registon OПХ',
-            '📮 Bulungʻur OПХ', '📮 Jomboy OПХ', '📮 Ishtixon OПХ',
-            '📮 Kattaqoʻrgʻon OПХ', '📮 Nurobod OПХ', '📮 Payariq OПХ',
-            '📮 Pastdargʻom OПХ', '📮 Paxtachi OПХ', '📮 Tayloq OПХ',
-            '📮 Urgut OПХ'
-        ]
-    },
-    'andijan': {
-        'ru': [
-            '📮 Андижанское ОПС', '📮 ОПС Асака', '📮 ОПС Баликчи',
-            '📮 ОПС Боз', '📮 ОПС Булакбаши', '📮 ОПС Джалакудук',
-            '📮 ОПС Избаскан', '📮 ОПС Кургантепа', '📮 ОПС Мархамат',
-            '📮 ОПС Олтинкул', '📮 ОПС Пахтаобад', '📮 ОПС Улугнор',
-            '📮 ОПС Ходжаабад', '📮 ОПС Шахрихан'
-        ],
-        'uz': [
-            '📮 Andijon OПХ', '📮 Asaka OПХ', '📮 Baliqchi OПХ',
-            '📮 Boʻz OПХ', '📮 Buloqboshi OПХ', '📮 Jalaquduq OПХ',
-            '📮 Izboskan OПХ', '📮 Qoʻrgʻontepa OПХ', '📮 Marhamat OПХ',
-            '📮 Oltinkoʻl OПХ', '📮 Paxtaobod OПХ', '📮 Ulugʻnor OПХ',
-            '📮 Xoʻjaobod OПХ', '📮 Shahrixon OПХ'
-        ]
-    },
-    'bukhara': {
-        'ru': [
-            '📮 Бухарское ОПС', '📮 ОПС Алат', '📮 ОПС Вабкент',
-            '📮 ОПС Газли', '📮 ОПС Гиждуван', '📮 ОПС Жондор',
-            '📮 ОПС Каракуль', '📮 ОПС Караулбазар', '📮 ОПС Пешку',
-            '📮 ОПС Ромитан', '📮 ОПС Шафиркан'
-        ],
-        'uz': [
-            '📮 Buxoro OПХ', '📮 Olot OПХ', '📮 Vobkent OПХ',
-            '📮 Gʻazli OПХ', '📮 Gʻijduvon OПХ', '📮 Jondor OПХ',
-            '📮 Qorakoʻl OПХ', '📮 Qorovulbozor OПХ', '📮 Peshku OПХ',
-            '📮 Romitan OПХ', '📮 Shofirkon OПХ'
-        ]
-    },
-    'fergana': {
-        'ru': [
-            '📮 Ферганское ОПС', '📮 ОПС Алтыарык', '📮 ОПС Багдад',
-            '📮 ОПС Бешарык', '📮 ОПС Бувайда', '📮 ОПС Дангара',
-            '📮 ОПС Кува', '📮 ОПС Кувасай', '📮 ОПС Маргилан',
-            '📮 ОПС Риштан', '📮 ОПС Сах', '📮 ОПС Ташлак',
-            '📮 ОПС Учкуприк', '📮 ОПС Узбекистан', '📮 ОПС Фуркат',
-            '📮 ОПС Язъяван'
-        ],
-        'uz': [
-            '📮 Fargʻona OПХ', '📮 Oltiariq OПХ', '📮 Bagʻdod OПХ',
-            '📮 Beshariq OПХ', '📮 Buvayda OПХ', '📮 Dangʻara OПХ',
-            '📮 Quva OПХ', '📮 Quvasoy OПХ', '📮 Margʻilon OПХ',
-            '📮 Rishton OПХ', '📮 Soʻx OПХ', '📮 Toshloq OПХ',
-            '📮 Uchkoʻprik OПХ', '📮 Oʻzbekiston OПХ', '📮 Furqat OПХ',
-            '📮 Yozyovon OПХ'
-        ]
-    },
-    'namangan': {
-        'ru': [
-            '📮 Наманганское ОПС', '📮 ОПС Косонсой', '📮 ОПС Мингбулак',
-            '📮 ОПС Норин', '📮 ОПС Поп', '📮 ОПС Торакурган',
-            '📮 ОПС Уйчи', '📮 ОПС Учкурган', '📮 ОПС Чартак',
-            '📮 ОПС Чуст', '📮 ОПС Янгикурган'
-        ],
-        'uz': [
-            '📮 Namangan OПХ', '📮 Kosonsoy OПХ', '📮 Mingbuloq OПХ',
-            '📮 Norin OПХ', '📮 Pop OПХ', '📮 Toʻraqoʻrgʻon OПХ',
-            '📮 Uychi OПХ', '📮 Uchqoʻrgʻon OПХ', '📮 Chortoq OПХ',
-            '📮 Chust OПХ', '📮 Yangiqoʻrgʻon OПХ'
-        ]
-    },
-    'jizzakh': {
-        'ru': [
-            '📮 Джизакское ОПС', '📮 ОПС Арнасай', '📮 ОПС Бахмат',
-            '📮 ОПС Гагарин', '📮 ОПС Дустлик', '📮 ОПС Зафарабад',
-            '📮 ОПС Замин', '📮 ОПС Мирзачул', '📮 ОПС Пахтакор',
-            '📮 ОПС Фариш', '📮 ОПС Янгиабад'
-        ],
-        'uz': [
-            '📮 Jizzax OПХ', '📮 Arnasoy OПХ', '📮 Baxmal OПХ',
-            '📮 Gagarin OПХ', '📮 Doʻstlik OПХ', '📮 Zafarobod OПХ',
-            '📮 Zomin OПХ', '📮 Mirzachoʻl OПХ', '📮 Paxtakor OПХ',
-            '📮 Farish OПХ', '📮 Yangiobod OПХ'
-        ]
-    },
-    'kashkadarya': {
-        'ru': [
-            '📮 Каршинское ОПС', '📮 ОПС Гузар', '📮 ОПС Дехканабад',
-            '📮 ОПС Камаши', '📮 ОПС Карши', '📮 ОПС Китаб',
-            '📮 ОПС Миришкор', '📮 ОПС Мубарек', '📮 ОПС Нишан',
-            '📮 ОПС Чиракчи', '📮 ОПС Шахрисабз', '📮 ОПС Яккабаг'
-        ],
-        'uz': [
-            '📮 Qarshi OПХ', '📮 Gʻuzor OПХ', '📮 Dehqonobod OПХ',
-            '📮 Qamashi OПХ', '📮 Qarshi OПХ', '📮 Kitob OПХ',
-            '📮 Mirishkor OПХ', '📮 Muborak OПХ', '📮 Nishon OПХ',
-            '📮 Chiroqchi OПХ', '📮 Shahrisabz OПХ', '📮 Yakkabogʻ OПХ'
-        ]
-    },
-    'khorezm': {
-        'ru': [
-            '📮 Ургенчское ОПС', '📮 ОПС Багат', '📮 ОПС Гурлен',
-            '📮 ОПС Кошкупыр', '📮 ОПС Питнак', '📮 ОПС Тупроқкала',
-            '📮 ОПС Ургенч', '📮 ОПС Хазарасп', '📮 ОПС Ханка',
-            '📮 ОПС Хива', '📮 ОПС Шават', '📮 ОПС Янгиарык',
-            '📮 ОПС Янгибазар'
-        ],
-        'uz': [
-            '📮 Urganch OПХ', '📮 Bogʻot OПХ', '📮 Gurlan OПХ',
-            '📮 Qoʻshkoʻpir OПХ', '📮 Pitnak OПХ', '📮 Tuproqqala OПХ',
-            '📮 Urganch OПХ', '📮 Xazorasp OПХ', '📮 Xonqa OПХ',
-            '📮 Xiva OПХ', '📮 Shovot OПХ', '📮 Yangiariq OПХ',
-            '📮 Yangibozor OПХ'
-        ]
-    },
-    'navoi': {
-        'ru': [
-            '📮 Навоийское ОПС', '📮 ОПС Зарафшан', '📮 ОПС Кармана',
-            '📮 ОПС Кызылтепа', '📮 ОПС Навбахор', '📮 ОПС Нурата',
-            '📮 ОПС Тамдыбулак', '📮 ОПС Учкудук', '📮 ОПС Хатырчи'
-        ],
-        'uz': [
-            '📮 Navoiy OПХ', '📮 Zarafshon OПХ', '📮 Karmana OПХ',
-            '📮 Qiziltepa OПХ', '📮 Navbaxor OПХ', '📮 Nurota OПХ',
-            '📮 Tomdibuloq OПХ', '📮 Uchquduq OПХ', '📮 Xatirchi OПХ'
-        ]
-    },
-    'surkhandarya': {
-        'ru': [
-            '📮 Термезское ОПС', '📮 ОПС Ангор', '📮 ОПС Байсун',
-            '📮 ОПС Денау', '📮 ОПС Жаркурган', '📮 ОПС Кумкурган',
-            '📮 ОПС Музрабад', '📮 ОПС Сариасия', '📮 ОПС Термез',
-            '📮 ОПС Узун', '📮 ОПС Шерабад', '📮 ОПС Шурчи'
-        ],
-        'uz': [
-            '📮 Termiz OПХ', '📮 Angor OПХ', '📮 Boysun OПХ',
-            '📮 Denov OПХ', '📮 Jarqoʻrgʻon OПХ', '📮 Qumqoʻrgʻon OПХ',
-            '📮 Muzrabot OПХ', '📮 Sariosiyo OПХ', '📮 Termiz OПХ',
-            '📮 Uzun OПХ', '📮 Sherobod OПХ', '📮 Shoʻrchi OПХ'
-        ]
-    },
-    'syrdarya': {
-        'ru': [
-            '📮 Гулистанское ОПС', '📮 ОПС Акалтын', '📮 ОПС Бахт',
-            '📮 ОПС Гулистан', '📮 ОПС Мирзаабад', '📮 ОПС Сайхунобад',
-            '📮 ОПС Сардоба', '📮 ОПС Сырдарья', '📮 ОПС Хаваст'
-        ],
-        'uz': [
-            '📮 Guliston OПХ', '📮 Oqoltin OПХ', '📮 Baxt OПХ',
-            '📮 Guliston OПХ', '📮 Mirzaobod OПХ', '📮 Sayxunobod OПХ',
-            '📮 Sardoba OПХ', '📮 Sirdaryo OПХ', '📮 Xovos OПХ'
-        ]
-    },
-    'karakalpakstan': {
-        'ru': [
-            '📮 Нукусское ОПС', '📮 ОПС Амударья', '📮 ОПС Беруний',
-            '📮 ОПС Кегейли', '📮 ОПС Кунград', '📮 ОПС Муйнак',
-            '📮 ОПС Нукус', '📮 ОПС Тахтакупыр', '📮 ОПС Турткуль',
-            '📮 ОПС Ходжейли', '📮 ОПС Чимбай', '📮 ОПС Шуманай'
-        ],
-        'uz': [
-            '📮 Nukus OПХ', '📮 Amudaryo OПХ', '📮 Beruniy OПХ',
-            '📮 Kegeyli OПХ', '📮 Qoʻngʻirot OПХ', '📮 Moʻynoq OПХ',
-            '📮 Nukus OПХ', '📮 Taxtakoʻpir OПХ', '📮 Toʻrtkoʻl OПХ',
-            '📮 Xoʻjayli OПХ', '📮 Chimboy OПХ', '📮 Shumanay OПХ'
-        ]
-    }
-}
-
-# ================== СИСТЕМА РАЗМЕРОВ ==================
-SIZE_GUIDE = {
-    'ru': {
-        'S': "S (46-48) - Обхват груди: 92-96см, Рост: 170-176см",
-        'M': "M (48-50) - Обхват груди: 96-100см, Рост: 176-182см", 
-        'L': "L (50-52) - Обхват груди: 100-104см, Рост: 182-186см",
-        'XL': "XL (52-54) - Обхват груди: 104-108см, Рост: 186-190см",
-        'XXL': "XXL (54-56) - Обхват груди: 108-112см, Рост: 190-194см",
-        '40': "40 EU - Для стопы ~25.5см",
-        '41': "41 EU - Для стопы ~26.5см", 
-        '42': "42 EU - Для стопы ~27см",
-        '43': "43 EU - Для стопы ~27.5см",
-        '44': "44 EU - Для стопы ~28.5см"
-    },
-    'uz': {
-        'S': "S (46-48) - Ko'krak qafasi: 92-96sm, Bo'y: 170-176sm",
-        'M': "M (48-50) - Ko'krak qafasi: 96-100sm, Bo'y: 176-182sm",
-        'L': "L (50-52) - Ko'krak qafasi: 100-104sm, Bo'y: 182-186sm", 
-        'XL': "XL (52-54) - Ko'krak qafasi: 104-108sm, Bo'y: 186-190sm",
-        'XXL': "XXL (54-56) - Ko'krak qafasi: 108-112sm, Bo'y: 190-194sm",
-        '40': "40 EU - Oyoq uchun ~25.5sm",
-        '41': "41 EU - Oyoq uchun ~26.5sm",
-        '42': "42 EU - Oyoq uchun ~27sm",
-        '43': "43 EU - Oyoq uchun ~27.5sm", 
-        '44': "44 EU - Oyoq uchun ~28.5sm"
-    }
-}
-
 # ================== ХРАНЕНИЕ ДАННЫХ ==================
 user_sessions = {}
 user_selections = {}
@@ -394,17 +175,11 @@ def get_language_keyboard():
     return builder.as_markup(resize_keyboard=True)
 
 def get_contact_keyboard(language):
-    text = "📞 Отправить контакт" if language == 'ru' else "📞 Kontaktni yuborish"
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=text, request_contact=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-def get_phone_input_keyboard(language):
-    text = "📱 Ввести номер вручную" if language == 'ru' else "📱 Raqamni qo'lda kiritish"
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=text)]],
+        keyboard=[
+            [KeyboardButton(text="📞 Отправить контакт" if language == 'ru' else "📞 Kontaktni yuborish", request_contact=True)],
+            [KeyboardButton(text="📱 Ввести номер вручную" if language == 'ru' else "📱 Raqamni qo'lda kiritish")]
+        ],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -424,14 +199,6 @@ def get_location_keyboard(language):
         resize_keyboard=True,
         one_time_keyboard=True
     )
-
-def get_post_office_keyboard(region, language):
-    builder = ReplyKeyboardBuilder()
-    offices = POST_OFFICES.get(region, {}).get(language, ['📮 Центральное отделение' if language == 'ru' else '📮 Markaziy boʻlim'])
-    for office in offices:
-        builder.add(KeyboardButton(text=office))
-    builder.adjust(1)
-    return builder.as_markup(resize_keyboard=True)
 
 def get_main_menu(language):
     builder = ReplyKeyboardBuilder()
@@ -550,16 +317,6 @@ def get_payment_menu(language):
     builder.adjust(2, 1)
     return builder.as_markup(resize_keyboard=True)
 
-def get_admin_menu():
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="➕ Добавить товар"))
-    builder.add(KeyboardButton(text="📊 Статистика"))
-    builder.add(KeyboardButton(text="📦 Заказы"))
-    builder.add(KeyboardButton(text="⭐ Управление отзывами"))
-    builder.add(KeyboardButton(text="🔙 Главное меню"))
-    builder.adjust(2, 2, 1)
-    return builder.as_markup(resize_keyboard=True)
-
 def get_reviews_menu(language):
     builder = ReplyKeyboardBuilder()
     if language == 'ru':
@@ -595,10 +352,6 @@ def get_text(key, language):
             'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567",
             'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567"
         },
-        'phone_confirmation': {
-            'ru': "📱 Это ваш основной номер?",
-            'uz': "📱 Bu sizning asosiy raqamingizmi?"
-        },
         'region_request': {
             'ru': "🏙️ Выберите ваш регион для доставки:",
             'uz': "🏙️ Yetkazib berish uchun viloyatingizni tanlang:"
@@ -607,9 +360,9 @@ def get_text(key, language):
             'ru': "📍 Теперь поделитесь вашим местоположением для доставки:",
             'uz': "📍 Endi yetkazib berish uchun manzilingizni ulashing:"
         },
-        'post_office_request': {
-            'ru': "📮 Выберите ближайшее почтовое отделение:",
-            'uz': "📮 Eng yaqin pochta boʻlimini tanlang:"
+        'post_office_info': {
+            'ru': "📮 Информация о почтовых отделениях:\n\n",
+            'uz': "📮 Pochta bo'limlari haqida ma'lumot:\n\n"
         },
         'contact_received': {
             'ru': "✅ Контакт получен!",
@@ -754,13 +507,21 @@ async def send_product_card(chat_id, product, language):
         )
     
     try:
-        await bot.send_photo(
-            chat_id=chat_id,
-            photo=image_url,
-            caption=caption,
-            parse_mode='HTML',
-            reply_markup=get_back_menu(language)
-        )
+        if image_url:
+            await bot.send_photo(
+                chat_id=chat_id,
+                photo=image_url,
+                caption=caption,
+                parse_mode='HTML',
+                reply_markup=get_back_menu(language)
+            )
+        else:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=caption,
+                parse_mode='HTML',
+                reply_markup=get_back_menu(language)
+            )
     except Exception as e:
         logging.error(f"Ошибка загрузки фото: {e}")
         await bot.send_message(
@@ -823,6 +584,75 @@ async def notify_admins(text, photo_id=None):
         except Exception as e:
             logging.error(f"Ошибка отправки админу {admin_id}: {e}")
 
+# ================== ИНФОРМАЦИЯ О ПОЧТОВЫХ ОТДЕЛЕНИЯХ ==================
+def get_post_offices_info(region, language):
+    post_offices_info = {
+        'tashkent': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ ТАШКЕНТА:
+
+• 📍 Чиланзарское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10335/tashkent/?ll=69.240562%2C41.311151&z=13
+  🗺️ Google: https://goo.gl/maps/example1
+
+• 📍 Юнусабадское ОПС  
+  🗺️ Яндекс: https://yandex.uz/maps/10335/tashkent/?ll=69.280562%2C41.351151&z=13
+  🗺️ Google: https://goo.gl/maps/example2
+
+• 📍 Мирзо-Улугбекское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10335/tashkent/?ll=69.260562%2C41.331151&z=13
+  🗺️ Google: https://goo.gl/maps/example3
+
+Выберите ближайшее отделение и сообщите нам при оформлении заказа.""",
+            'uz': """📮 TOSHKENT Pochta Bo'limlari:
+
+• 📍 Chilanzar OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10335/tashkent/?ll=69.240562%2C41.311151&z=13
+  🗺️ Google: https://goo.gl/maps/example1
+
+• 📍 Yunusobod OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10335/tashkent/?ll=69.280562%2C41.351151&z=13  
+  🗺️ Google: https://goo.gl/maps/example2
+
+• 📍 Mirzo-Ulugʻbek OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10335/tashkent/?ll=69.260562%2C41.331151&z=13
+  🗺️ Google: https://goo.gl/maps/example3
+
+Eng yaqin bo'limni tanlang va buyurtma berishda bizga xabar bering."""
+        },
+        'samarkand': {
+            'ru': """📮 ПОЧТОВЫЕ ОТДЕЛЕНИЯ САМАРКАНДА:
+
+• 📍 Самаркандское ОПС
+  🗺️ Яндекс: https://yandex.uz/maps/10336/samarkand/?ll=66.959727%2C39.655146&z=13
+  🗺️ Google: https://goo.gl/maps/example4
+
+• 📍 ОПС Сиаб
+  🗺️ Яндекс: https://yandex.uz/maps/10336/samarkand/?ll=66.939727%2C39.635146&z=13
+  🗺️ Google: https://goo.gl/maps/example5
+
+• 📍 ОПС Регистан
+  🗺️ Яндекс: https://yandex.uz/maps/10336/samarkand/?ll=66.979727%2C39.675146&z=13
+  🗺️ Google: https://goo.gl/maps/example6""",
+            'uz': """📮 SAMARQAND Pochta Bo'limlari:
+
+• 📍 Samarqand OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.959727%2C39.655146&z=13
+  🗺️ Google: https://goo.gl/maps/example4
+
+• 📍 Siob OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.939727%2C39.635146&z=13
+  🗺️ Google: https://goo.gl/maps/example5
+
+• 📍 Registon OПХ
+  🗺️ Yandex: https://yandex.uz/maps/10336/samarkand/?ll=66.979727%2C39.675146&z=13
+  🗺️ Google: https://goo.gl/maps/example6"""
+        }
+    }
+    
+    return post_offices_info.get(region, {}).get(language, 
+        "📮 Выберите ближайшее почтовое отделение и сообщите нам при оформлении заказа." if language == 'ru' 
+        else "📮 Eng yaqin pochta bo'limini tanlang va buyurtma berishda bizga xabar bering.")
+
 # ================== ОСНОВНЫЕ КОМАНДЫ ==================
 @dp.message(Command("start"))
 async def start_bot(message: types.Message):
@@ -836,15 +666,7 @@ async def handle_language(message: types.Message):
     language = 'ru' if message.text == "🇷🇺 Русский" else 'uz'
     
     user_sessions[user_id] = {'step': 'contact', 'language': language}
-    await message.answer(get_text('contact_request', language), 
-                       reply_markup=ReplyKeyboardMarkup(
-                           keyboard=[
-                               [KeyboardButton(text="📞 Отправить контакт" if language == 'ru' else "📞 Kontaktni yuborish", request_contact=True)],
-                               [KeyboardButton(text="📱 Ввести номер вручную" if language == 'ru' else "📱 Raqamni qo'lda kiritish")]
-                           ],
-                           resize_keyboard=True,
-                           one_time_keyboard=True
-                       ))
+    await message.answer(get_text('contact_request', language), reply_markup=get_contact_keyboard(language))
 
 # РУЧНОЙ ВВОД НОМЕРА
 @dp.message(F.text.in_(["📱 Ввести номер вручную", "📱 Raqamni qo'lda kiritish"]))
@@ -867,7 +689,7 @@ async def handle_manual_phone_input(message: types.Message):
     session = user_sessions.get(user_id, {})
     
     if session.get('step') != 'manual_phone':
-        return await handle_text_messages(message)
+        return
     
     language = session.get('language', 'ru')
     phone = message.text.strip()
@@ -911,12 +733,12 @@ async def handle_contact(message: types.Message):
 
 # ВЫБОР РЕГИОНА
 @dp.message(F.text)
-async def handle_region(message: types.Message):
+async def handle_region_selection(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
     
     if session.get('step') != 'region':
-        return await handle_text_messages(message)
+        return await handle_main_menu(message)
     
     language = session.get('language', 'ru')
     text = message.text
@@ -928,7 +750,10 @@ async def handle_region(message: types.Message):
             break
     
     if not selected_region:
-        await message.answer("❌ Пожалуйста, выберите регион из списка")
+        if language == 'ru':
+            await message.answer("❌ Пожалуйста, выберите регион из списка")
+        else:
+            await message.answer("❌ Iltimos, ro'yxatdan viloyatni tanlang")
         return
     
     user_sessions[user_id]['step'] = 'location'
@@ -940,36 +765,39 @@ async def handle_region(message: types.Message):
         await message.answer(get_text('location_request_tashkent', language), 
                            reply_markup=get_location_keyboard(language))
     else:
-        await message.answer(get_text('post_office_request', language),
-                           reply_markup=get_post_office_keyboard(selected_region, language))
+        # Для других регионов отправляем информацию о почтовых отделениях
+        post_info = get_post_offices_info(selected_region, language)
+        await message.answer(post_info)
+        
+        if language == 'ru':
+            await message.answer("📍 После выбора отделения отправьте свою геолокацию или напишите название отделения:")
+        else:
+            await message.answer("📍 Bo'limni tanlaganingizdan so'ng, o'zingizning geolokatsiyangizni yuboring yoki bo'lim nomini yozing:")
+        
+        user_sessions[user_id]['waiting_location'] = True
 
-# ОБРАБОТКА ВЫБОРА ПОЧТОВОГО ОТДЕЛЕНИЯ
+# ПОЛУЧЕНИЕ ЛОКАЦИИ ИЛИ НАЗВАНИЯ ОТДЕЛЕНИЯ
 @dp.message(F.text)
-async def handle_post_office(message: types.Message):
+async def handle_location_input(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
     
-    if session.get('step') != 'location' or session.get('region') == 'tashkent':
-        return await handle_text_messages(message)
+    if not session.get('waiting_location'):
+        return await handle_main_menu(message)
     
     language = session.get('language', 'ru')
-    region = session.get('region')
-    
-    offices = POST_OFFICES.get(region, {}).get(language, [])
-    if message.text not in offices:
-        await message.answer("❌ Пожалуйста, выберите отделение из списка")
-        return
-    
     location = message.text
-    save_user(user_id, session['phone'], session['name'], language, region, location)
+    
+    save_user(user_id, session['phone'], session['name'], language, session['region'], location)
     
     user_sessions[user_id]['step'] = 'main_menu'
     user_sessions[user_id]['location'] = location
+    user_sessions[user_id]['waiting_location'] = False
     
     await message.answer(get_text('post_office_received', language), 
                        reply_markup=get_main_menu(language))
 
-# ПОЛУЧЕНИЕ ЛОКАЦИИ
+# ПОЛУЧЕНИЕ ГЕОЛОКАЦИИ
 @dp.message(F.location)
 async def handle_location(message: types.Message):
     user_id = message.from_user.id
@@ -988,8 +816,8 @@ async def handle_location(message: types.Message):
     await message.answer(get_text('location_received', language), 
                        reply_markup=get_main_menu(language))
 
-# ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ
-async def handle_text_messages(message: types.Message):
+# ОБРАБОТКА ГЛАВНОГО МЕНЮ
+async def handle_main_menu(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
     
@@ -1017,10 +845,30 @@ async def handle_text_messages(message: types.Message):
         await show_boots(message)
     elif text in ["🔥 Акции", "🔥 Aksiyalar"]:
         await show_sales(message)
+    elif text in ["🕰️ Ретро формы", "🕰️ Retro formalar"]:
+        await show_retro_forms(message)
+    elif text in ["🔮 Формы 2025/2026", "🔮 2025/2026 Formalari"]:
+        await show_new_forms(message)
     elif text in ["↩️ Назад", "↩️ Orqaga"]:
         await back_to_main_menu(message)
     elif text in ["❌ Отмена", "❌ Bekor qilish"]:
         await handle_cancel(message)
+    elif text in ["⭐ Посмотреть отзывы", "⭐ Sharhlarni ko'rish"]:
+        await show_reviews(message)
+    elif text in ["✍️ Оставить отзыв", "✍️ Sharh qoldirish"]:
+        await start_review(message)
+    elif text in ["🛒 Корзина", "🛒 Savat"]:
+        await show_cart_command(message)
+    elif text in ["➕ Добавить еще товар", "➕ Yana mahsulot qo'shish"]:
+        await add_more_products(message)
+    elif text in ["💳 Оформить заказ", "💳 Buyurtma berish"]:
+        await checkout_cart(message)
+    elif text in ["🗑️ Очистить корзину", "🗑️ Savatni tozalash"]:
+        await clear_cart(message)
+    elif text in ["💳 Перевод на карту", "💳 Karta orqali to'lash"]:
+        await handle_payment(message)
+    elif text in ["💵 Наличные", "💵 Naqd pul"]:
+        await handle_payment(message)
     else:
         # Проверяем, не является ли сообщение номером товара
         if text.isdigit():
@@ -1044,7 +892,6 @@ async def handle_cancel(message: types.Message):
                            reply_markup=get_main_menu(language))
 
 # КАТАЛОГ
-@dp.message(F.text.in_(["🛍️ Каталог", "🛍️ Katalog"]))
 async def show_catalog(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1061,7 +908,6 @@ async def show_catalog(message: types.Message):
     await message.answer(text, reply_markup=get_catalog_keyboard(language))
 
 # КАТЕГОРИИ ТОВАРОВ
-@dp.message(F.text.in_(["👕 Формы", "👕 Formalar"]))
 async def show_forms_menu(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1072,23 +918,18 @@ async def show_forms_menu(message: types.Message):
     await message.answer("👕 Выберите тип форм:" if language == 'ru' else "👕 Formalar turini tanlang:", 
                        reply_markup=get_forms_submenu(language))
 
-@dp.message(F.text.in_(["🕰️ Ретро формы", "🕰️ Retro formalar"]))
 async def show_retro_forms(message: types.Message):
     await show_category_products(message, "Ретро", "Retro")
 
-@dp.message(F.text.in_(["🔮 Формы 2025/2026", "🔮 2025/2026 Formalari"]))
 async def show_new_forms(message: types.Message):
     await show_category_products(message, "Формы 2025/2026", "2025/2026 Formalari")
 
-@dp.message(F.text.in_(["⚽ Бутсы", "⚽ Futbolkalar"]))
 async def show_boots(message: types.Message):
     await show_category_products(message, "Бутсы", "Futbolkalar")
 
-@dp.message(F.text.in_(["🔥 Акции", "🔥 Aksiyalar"]))
 async def show_sales(message: types.Message):
     await show_category_products(message, "Акции", "Aksiyalar")
 
-@dp.message(F.text.in_(["ℹ️ Помощь", "ℹ️ Yordam"]))
 async def show_help(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1099,7 +940,6 @@ async def show_help(message: types.Message):
     await message.answer(get_text('help_text', language), parse_mode='HTML')
     support_requests[message.from_user.id] = {'waiting_question': True}
 
-@dp.message(F.text.in_(["↩️ Назад", "↩️ Orqaga"]))
 async def back_to_main_menu(message: types.Message):
     user = get_user(message.from_user.id)
     if user:
@@ -1253,7 +1093,7 @@ async def handle_customization_text(message: types.Message):
     session = user_sessions.get(user_id, {})
     
     if session.get('step') != 'waiting_customization_text':
-        return await handle_text_messages(message)
+        return
     
     user = get_user(user_id)
     if not user or user_id not in user_selections:
@@ -1344,7 +1184,6 @@ async def handle_size_help(callback: types.CallbackQuery):
     await callback.answer()
 
 # КОРЗИНА
-@dp.message(F.text.in_(["🛒 Корзина", "🛒 Savat"]))
 async def show_cart_command(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1354,7 +1193,6 @@ async def show_cart_command(message: types.Message):
     language = user[2]
     await show_cart(message.from_user.id, language, message)
 
-@dp.message(F.text.in_(["➕ Добавить еще товар", "➕ Yana mahsulot qo'shish"]))
 async def add_more_products(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1364,7 +1202,6 @@ async def add_more_products(message: types.Message):
     await message.answer("📋 Выберите категорию:" if language == 'ru' else "📋 Toifani tanlang:", 
                        reply_markup=get_main_menu(language))
 
-@dp.message(F.text.in_(["💳 Оформить заказ", "💳 Buyurtma berish"]))
 async def checkout_cart(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1390,7 +1227,6 @@ async def checkout_cart(message: types.Message):
     user_sessions[message.from_user.id]['checkout_cart'] = cart.copy()
     await message.answer(text, reply_markup=get_payment_menu(language))
 
-@dp.message(F.text.in_(["🗑️ Очистить корзину", "🗑️ Savatni tozalash"]))
 async def clear_cart(message: types.Message):
     user_id = message.from_user.id
     if user_id in user_carts:
@@ -1405,7 +1241,6 @@ async def clear_cart(message: types.Message):
             await message.answer("✅ Savat tozalandi", reply_markup=get_main_menu(language))
 
 # ОПЛАТА
-@dp.message(F.text.in_(["💳 Перевод на карту", "💳 Karta orqali to'lash", "💵 Наличные", "💵 Naqd pul"]))
 async def handle_payment(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -1574,439 +1409,7 @@ async def handle_payment(message: types.Message):
         if not is_card and message.from_user.id in user_selections:
             del user_selections[message.from_user.id]
 
-# ЧЕКИ
-@dp.message(F.photo)
-async def handle_receipt_photo(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-    
-    if not session.get('waiting_receipt'):
-        return
-    
-    user = get_user(user_id)
-    if not user:
-        return
-    
-    phone, name, language, region, location = user
-    
-    if 'order_ids' in session:
-        # Обработка нескольких заказов из корзины
-        order_ids = session['order_ids']
-        for order_id in order_ids:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE orders SET status = 'waiting_confirm', receipt_photo_id = ? WHERE id = ?",
-                    (message.photo[-1].file_id, order_id)
-                )
-                conn.commit()
-        
-        admin_text = (
-            f"📸 ПОСТУПИЛ ЧЕК ДЛЯ {len(order_ids)} ЗАКАЗОВ\n\n"
-            f"👤 Клиент: {name} (@{message.from_user.username or 'N/A'})\n"
-            f"📞 Телефон: {phone}\n"
-            f"🏙️ Регион: {REGIONS['ru'].get(region, region)}\n"
-            f"📍 Адрес: {location}\n"
-            f"🆔 Заказы: {', '.join([f'#{oid}' for oid in order_ids])}\n\n"
-            f"✅ Для подтверждения: /confirm_all_{user_id}\n"
-            f"❌ Для отмены: /cancel_all_{user_id}"
-        )
-        
-    else:
-        # Обработка одного заказа
-        order_id = session['order_id']
-        selection = user_selections.get(user_id, {})
-        product_size = selection.get('size', 'Не указан')
-        customization_text = selection.get('customization', {}).get('text') if selection.get('customization') else None
-        
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE orders SET status = 'waiting_confirm', receipt_photo_id = ? WHERE id = ?",
-                (message.photo[-1].file_id, order_id)
-            )
-            conn.commit()
-        
-        admin_text = (
-            f"📸 ПОСТУПИЛ ЧЕК\n\n"
-            f"🆔 Заказ: #{order_id}\n"
-            f"👤 Клиент: {name} (@{message.from_user.username or 'N/A'})\n"
-            f"📞 Телефон: {phone}\n"
-            f"🏙️ Регион: {REGIONS['ru'].get(region, region)}\n"
-            f"📍 Адрес: {location}\n"
-            f"📦 Товар: {selection.get('product_name', 'N/A')}\n"
-            f"📏 Размер: {product_size}\n"
-            f"✨ Кастомизация: {customization_text or 'Нет'}\n"
-            f"💵 Сумма: {format_price(selection.get('product_price', 0) + (selection.get('customization', {}).get('price', 0) if selection.get('customization') else 0), 'ru')}\n\n"
-            f"✅ Для подтверждения: /confirm_{order_id}\n"
-            f"❌ Для отмены: /cancel_{order_id}"
-        )
-    
-    await notify_admins(admin_text, message.photo[-1].file_id)
-    
-    if language == 'ru':
-        text = "✅ Чек получен! Ожидайте подтверждения в течение 15 минут."
-    else:
-        text = "✅ Chek qabul qilindi! 15 daqiqa ichida tasdiqlanishini kuting."
-    
-    await message.answer(text, reply_markup=get_main_menu(language))
-    
-    # Очистка
-    user_sessions[user_id]['waiting_receipt'] = False
-    if 'order_id' in user_sessions[user_id]:
-        del user_sessions[user_id]['order_id']
-    if 'order_ids' in user_sessions[user_id]:
-        del user_sessions[user_id]['order_ids']
-    if user_id in user_selections:
-        del user_selections[user_id]
-    if user_id in user_carts:
-        del user_carts[user_id]
-
-# ПОДДЕРЖКА
-@dp.message()
-async def handle_support_question(message: types.Message):
-    user_id = message.from_user.id
-    
-    if user_id in support_requests and support_requests[user_id].get('waiting_question'):
-        user = get_user(user_id)
-        if not user:
-            return
-        
-        language = user[2]
-        question = message.text
-        
-        support_requests[user_id] = {
-            'question': question,
-            'waiting_admin': True,
-            'language': language
-        }
-        
-        admin_text = (
-            f"❓ <b>НОВЫЙ ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ</b>\n\n"
-            f"👤 {user[1]} (@{message.from_user.username or 'N/A'})\n"
-            f"📞 {user[0]}\n"
-            f"🌍 {REGIONS['ru'].get(user[3], user[3])}\n\n"
-            f"💬 <b>Вопрос:</b>\n{question}\n\n"
-            f"✍️ <b>Ответьте на это сообщение, чтобы ответить пользователю</b>"
-        )
-        
-        for admin_id in ADMIN_IDS:
-            try:
-                sent_msg = await bot.send_message(admin_id, admin_text, parse_mode='HTML')
-                support_requests[user_id]['admin_message_id'] = sent_msg.message_id
-            except Exception as e:
-                logging.error(f"Ошибка отправки админу: {e}")
-        
-        if language == 'ru':
-            await message.answer("✅ Ваш вопрос отправлен! Ожидайте ответа в ближайшее время.")
-        else:
-            await message.answer("✅ Savolingiz yuborildi! Tez orada javob kutiling.")
-        
-        support_requests[user_id]['waiting_question'] = False
-
-# ОТВЕТЫ АДМИНОВ
-@dp.message(F.reply_to_message)
-async def handle_admin_reply(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    replied_message = message.reply_to_message
-    admin_response = message.text
-    
-    for user_id, request in support_requests.items():
-        if request.get('admin_message_id') == replied_message.message_id:
-            user = get_user(user_id)
-            if not user:
-                continue
-            
-            language = request['language']
-            
-            # УБИРАЕМ ИИ - просто отправляем ответ как есть
-            improved_response = admin_response
-            
-            if language == 'ru':
-                response_text = f"🤝 <b>Ответ поддержки:</b>\n\n{improved_response}"
-            else:
-                response_text = f"🤝 <b>Yordam xizmati javobi:</b>\n\n{improved_response}"
-            
-            try:
-                await bot.send_message(user_id, response_text, parse_mode='HTML')
-                await message.answer("✅ Ответ отправлен пользователю")
-                del support_requests[user_id]
-            except Exception as e:
-                await message.answer(f"❌ Ошибка отправки пользователю: {e}")
-            break
-
-# АДМИН КОМАНДЫ
-@dp.message(Command("admin"))
-async def admin_panel(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    await message.answer("👑 Панель администратора:", reply_markup=get_admin_menu())
-
-@dp.message(F.text == "➕ Добавить товар")
-async def start_product_creation(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    admin_product_creation[message.from_user.id] = {'step': 'waiting_photo'}
-    await message.answer("📸 Пришлите фото товара:")
-
-@dp.message(F.text == "📊 Статистика")
-async def show_admin_stats(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-        
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'new'")
-        new_orders = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'waiting_confirm'")
-        waiting_confirm = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'confirmed'")
-        confirmed_orders = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM users")
-        total_users = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM products")
-        total_products = cursor.fetchone()[0]
-    
-    await message.answer(
-        f"📊 СТАТИСТИКА\n\n"
-        f"🆕 Новых заказов: {new_orders}\n"
-        f"📸 Ожидают подтверждения: {waiting_confirm}\n"
-        f"✅ Подтвержденных: {confirmed_orders}\n"
-        f"👥 Пользователей: {total_users}\n"
-        f"🏷️ Товаров: {total_products}\n\n"
-        f"🕒 {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    )
-
-@dp.message(F.text == "📦 Заказы")
-async def show_admin_orders(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, user_name, product_name, product_price, status, created_at 
-            FROM orders ORDER BY created_at DESC LIMIT 10
-        """)
-        orders = cursor.fetchall()
-    
-    if not orders:
-        await message.answer("📦 Нет заказов")
-        return
-    
-    orders_text = "📦 ПОСЛЕДНИЕ ЗАКАЗЫ:\n\n"
-    for order in orders:
-        order_id, user_name, product_name, product_price, status, created_at = order
-        status_icon = "✅" if status == "confirmed" else "🔄" if status == "waiting_confirm" else "🆕"
-        orders_text += f"{status_icon} #{order_id} - {user_name}\n"
-        orders_text += f"   {product_name}\n"
-        orders_text += f"   💵 {format_price(product_price, 'ru')}\n"
-        orders_text += f"   📅 {created_at[:16]}\n\n"
-    
-    await message.answer(orders_text)
-
-@dp.message(F.text == "⭐ Управление отзывами")
-async def manage_reviews(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="👀 Просмотр отзывов"))
-    builder.add(KeyboardButton(text="➕ Добавить отзыв"))
-    builder.add(KeyboardButton(text="🔙 Назад в админку"))
-    builder.adjust(2, 1)
-    
-    await message.answer("⭐ Управление отзывами:", reply_markup=builder.as_markup(resize_keyboard=True))
-
-@dp.message(F.text == "👀 Просмотр отзывов")
-async def show_admin_reviews(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT customer_name, review_text_ru, photo_url, rating FROM reviews ORDER BY created_at DESC LIMIT 10")
-        reviews = cursor.fetchall()
-    
-    if not reviews:
-        await message.answer("😔 Нет отзывов")
-        return
-    
-    for review in reviews:
-        customer_name, review_text, photo_url, rating = review
-        stars = "⭐" * rating
-        
-        caption = f"{stars}\n👤 {customer_name}\n💬 {review_text}"
-        
-        try:
-            if photo_url:
-                await bot.send_photo(message.chat.id, photo_url, caption=caption)
-            else:
-                await message.answer(caption)
-        except:
-            await message.answer(caption)
-    
-    await message.answer("📢 Канал с отзывами: https://t.me/footballkitsreview")
-
-@dp.message(F.text == "➕ Добавить отзыв")
-async def add_review_admin(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    await message.answer(
-        "✍️ Добавление отзыва:\n\n"
-        "Отправьте в формате:\n"
-        "<code>Имя | Текст отзыва | Рейтинг</code>\n\n"
-        "Пример:\n"
-        "<code>Алишер | Отличное качество! | 5</code>"
-    )
-    admin_product_creation[message.from_user.id] = {'step': 'waiting_review'}
-
-@dp.message(F.text.contains('|'))
-async def handle_review_creation(message: types.Message):
-    if (message.from_user.id not in ADMIN_IDS or 
-        message.from_user.id not in admin_product_creation or
-        admin_product_creation[message.from_user.id].get('step') != 'waiting_review'):
-        return
-    
-    try:
-        data = message.text.split('|')
-        if len(data) >= 3:
-            customer_name = data[0].strip()
-            review_text = data[1].strip()
-            rating = int(data[2].strip())
-            
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO reviews (customer_name, review_text_ru, review_text_uz, rating)
-                    VALUES (?, ?, ?, ?)
-                """, (customer_name, review_text, review_text, rating))
-                conn.commit()
-            
-            await message.answer("✅ Отзыв добавлен!")
-            
-        else:
-            await message.answer("❌ Неверный формат. Нужно: Имя | Текст | Рейтинг")
-            
-    except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
-    
-    if message.from_user.id in admin_product_creation:
-        del admin_product_creation[message.from_user.id]
-
-# БЫСТРОЕ СОЗДАНИЕ ТОВАРОВ
-@dp.message(Command("add"))
-async def quick_add_product(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    await message.answer(
-        "🎯 <b>Быстрое создание товара</b>\n\n"
-        "Отправьте в ОДНОМ сообщении:\n"
-        "• Фото товара\n" 
-        "• Название\n"
-        "• Цена\n"
-        "• Категория\n"
-        "• Размеры\n\n"
-        "<b>Пример:</b>\n"
-        "<code>Форма Пахтакор 2025\n"
-        "180000\n"
-        "Формы\n"
-        "S, M, L, XL</code>",
-        parse_mode='HTML'
-    )
-    admin_product_creation[message.from_user.id] = {'step': 'waiting_quick_data'}
-
-@dp.message(F.photo)
-async def handle_quick_product_creation(message: types.Message):
-    if (message.from_user.id not in ADMIN_IDS or 
-        message.from_user.id not in admin_product_creation or
-        not message.caption):
-        return
-    
-    try:
-        # Парсим данные из подписи к фото
-        lines = message.caption.split('\n')
-        if len(lines) >= 4:
-            name_ru = lines[0].strip()
-            price = int(lines[1].strip())
-            category_ru = lines[2].strip()
-            sizes_ru = lines[3].strip()
-            
-            # Автогенерация остальных данных
-            category_map = {
-                'Формы': ('Формы', 'Formalar'),
-                'Бутсы': ('Бутсы', 'Futbolkalar'), 
-                'Акции': ('Акции', 'Aksiyalar'),
-                'Ретро': ('Ретро', 'Retro')
-            }
-            
-            category_ru, category_uz = category_map.get(category_ru, ('Формы', 'Formalar'))
-            
-            # Автоперевод названия (простая версия)
-            name_uz = name_ru
-            if 'форма' in name_ru.lower():
-                name_uz = name_ru.replace('форма', 'formasi').replace('Форма', 'Formasi')
-            elif 'бутсы' in name_ru.lower():
-                name_uz = name_ru.replace('бутсы', 'futbolka').replace('Бутсы', 'Futbolka')
-            
-            # Сохраняем в базу
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO products 
-                    (name_ru, name_uz, price, category_ru, category_uz, image_url, description_ru, description_uz, sizes_ru, sizes_uz)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    name_ru,
-                    name_uz,
-                    price,
-                    category_ru,
-                    category_uz,
-                    message.photo[-1].file_id,
-                    f"Качественный товар: {name_ru}",
-                    f"Sifatli mahsulot: {name_uz}", 
-                    f"Размеры: {sizes_ru}",
-                    f"Oʻlchamlar: {sizes_ru}"
-                ))
-                conn.commit()
-                product_id = cursor.lastrowid
-            
-            # Создаем и показываем карточку
-            product = (
-                product_id,
-                name_ru,
-                price,
-                message.photo[-1].file_id,
-                f"Качественный товар: {name_ru}",
-                f"Размеры: {sizes_ru}"
-            )
-            
-            await send_product_card(message.chat.id, product, 'ru')
-            await message.answer("✅ <b>Готово, Сэр! Товар добавлен!</b>", parse_mode='HTML')
-            
-        else:
-            await message.answer("❌ Недостаточно данных. Нужно: название, цена, категория, размеры")
-            
-    except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
-    
-    # Очищаем сессию
-    if message.from_user.id in admin_product_creation:
-        del admin_product_creation[message.from_user.id]
-
 # СИСТЕМА ОТЗЫВОВ
-@dp.message(F.text.in_(["⭐ Мнения клиентов", "⭐ Mijozlar fikri"]))
 async def show_reviews_menu(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -2021,7 +1424,6 @@ async def show_reviews_menu(message: types.Message):
     
     await message.answer(text, reply_markup=get_reviews_menu(language))
 
-@dp.message(F.text.in_(["⭐ Посмотреть отзывы", "⭐ Sharhlarni ko'rish"]))
 async def show_reviews(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -2068,7 +1470,6 @@ async def show_reviews(message: types.Message):
         await message.answer("📢 Ko'proq sharhlar: https://t.me/footballkitsreview", 
                            reply_markup=get_reviews_menu(language))
 
-@dp.message(F.text.in_(["✍️ Оставить отзыв", "✍️ Sharh qoldirish"]))
 async def start_review(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -2102,7 +1503,7 @@ async def start_review(message: types.Message):
 async def handle_review_text(message: types.Message):
     user_id = message.from_user.id
     if user_id not in user_sessions or not user_sessions[user_id].get('waiting_review'):
-        return
+        return await handle_main_menu(message)
     
     user = get_user(user_id)
     if not user:
@@ -2181,71 +1582,7 @@ async def handle_review_photo(message: types.Message):
         
         del user_sessions[user_id]['waiting_review']
 
-# АДМИН КОМАНДЫ ПОДТВЕРЖДЕНИЯ
-@dp.message(F.text.startswith('/confirm_'))
-async def confirm_order(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    try:
-        order_id = int(message.text.split('_')[1])
-        update_order_status(order_id, ORDER_CONFIRMED, message.from_user.id)
-        
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id, product_name, product_price FROM orders WHERE id = ?", (order_id,))
-            order = cursor.fetchone()
-        
-        if order:
-            user_id, product_name, product_price = order
-            user = get_user(user_id)
-            if user:
-                phone, name, language, region, location = user
-                if language == 'ru':
-                    text = f"✅ Заказ #{order_id} подтвержден! Спасибо за оплату!"
-                else:
-                    text = f"✅ #{order_id}-buyurtma tasdiqlandi! To'lov uchun rahmat!"
-                
-                await bot.send_message(user_id, text)
-        
-        await message.answer(f"✅ Заказ #{order_id} подтвержден!")
-        
-    except Exception as e:
-        await message.answer("❌ Ошибка подтверждения заказа")
-
-@dp.message(F.text.startswith('/cancel_'))
-async def cancel_order(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    
-    try:
-        order_id = int(message.text.split('_')[1])
-        update_order_status(order_id, ORDER_CANCELLED)
-        
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM orders WHERE id = ?", (order_id,))
-            order = cursor.fetchone()
-        
-        if order:
-            user_id = order[0]
-            user = get_user(user_id)
-            if user:
-                phone, name, language, region, location = user
-                if language == 'ru':
-                    text = f"❌ Заказ #{order_id} отменен. Чек не прошел проверку."
-                else:
-                    text = f"❌ #{order_id}-buyurtma bekor qilindi. Chek tekshiruvdan o'tmadi."
-                
-                await bot.send_message(user_id, text)
-        
-        await message.answer(f"❌ Заказ #{order_id} отменен!")
-        
-    except Exception as e:
-        await message.answer("❌ Ошибка отмены заказа")
-
 # МОИ ЗАКАЗЫ
-@dp.message(F.text.in_(["📦 Мои заказы", "📦 Mening buyurtmalarim"]))
 async def show_my_orders(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
@@ -2282,6 +1619,20 @@ async def show_my_orders(message: types.Message):
     
     await message.answer(response, reply_markup=get_main_menu(language))
 
+# ОБРАБОТКА ВСЕХ СООБЩЕНИЙ
+@dp.message()
+async def handle_all_messages(message: types.Message):
+    # Проверяем, не находится ли пользователь в процессе регистрации
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    
+    if session.get('step') in ['language', 'contact', 'manual_phone', 'region', 'location']:
+        # Если пользователь в процессе регистрации, пропускаем обычную обработку
+        return
+    
+    # Обрабатываем как основное меню
+    await handle_main_menu(message)
+
 # ================== ЗАПУСК ==================
 async def main():
     try:
@@ -2290,8 +1641,9 @@ async def main():
         print(f"👑 Админы: {ADMIN_IDS}")
         print(f"💳 Карта для оплаты: {CARD_NUMBER}")
         print("⭐ Система отзывов готова!")
-        print("🛍️ Админ-панель для создания товаров активирована!")
+        print("🛍️ Каталог товаров готов!")
         print("📱 Регистрация через контакт или ручной ввод номера")
+        print("📍 Система доставки с почтовыми отделениями активирована!")
         await dp.start_polling(bot)
     except Exception as e:
         logging.error(f"Ошибка: {e}")
