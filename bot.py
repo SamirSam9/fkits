@@ -155,39 +155,32 @@ POST_OFFICES = {
             "📮 Olmazor OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5"
         ]
     },
-    # ... остальные регионы без изменений
+    'samarkand': {
+        'ru': [
+            "📮 Самаркандское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
+            "📮 ОПС Сиаб\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7",
+            "📮 ОПС Регистан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
+            "📮 ОПС Амира Темура\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
+            "📮 ОПС Ургут\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10"
+        ],
+        'uz': [
+            "📮 Samarqand OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
+            "📮 Siob OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7",
+            "📮 Registon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
+            "📮 Amir Temur OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
+            "📮 Urgut OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10"
+        ]
+    }
 }
 
 REGIONS = {
     'ru': {
         'tashkent': '🏙️ Ташкент',
-        'andijan': '🏙️ Андижан', 
-        'bukhara': '🏙️ Бухара',
-        'fergana': '🏙️ Фергана',
-        'jizzakh': '🏙️ Джизак',
-        'kashkadarya': '🏙️ Кашкадарья',
-        'khorezm': '🏙️ Хорезм',
-        'namangan': '🏙️ Наманган',
-        'navoi': '🏙️ Навои',
-        'samarkand': '🏙️ Самарканд',
-        'surkhandarya': '🏙️ Сурхандарья',
-        'syrdarya': '🏙️ Сырдарья',
-        'karakalpakstan': '🏙️ Каракалпакстан'
+        'samarkand': '🏙️ Самарканд'
     },
     'uz': {
         'tashkent': '🏙️ Toshkent',
-        'andijan': '🏙️ Andijon', 
-        'bukhara': '🏙️ Buxoro',
-        'fergana': '🏙️ Fargʻona',
-        'jizzakh': '🏙️ Jizzax',
-        'kashkadarya': '🏙️ Qashqadaryo',
-        'khorezm': '🏙️ Xorazm',
-        'namangan': '🏙️ Namangan',
-        'navoi': '🏙️ Navoiy',
-        'samarkand': '🏙️ Samarqand',
-        'surkhandarya': '🏙️ Surxondaryo',
-        'syrdarya': '🏙️ Sirdaryo',
-        'karakalpakstan': '🏙️ Qoraqalpogʻiston'
+        'samarkand': '🏙️ Samarqand'
     }
 }
 
@@ -376,9 +369,10 @@ def get_admin_menu():
     builder.add(KeyboardButton(text="📊 Статистика"))
     builder.add(KeyboardButton(text="📦 Заказы"))
     builder.add(KeyboardButton(text="➕ Добавить товар"))
+    builder.add(KeyboardButton(text="🛍️ Управление товарами"))
     builder.add(KeyboardButton(text="📝 Отзывы"))
     builder.add(KeyboardButton(text="🔙 Выйти из админки"))
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 2, 1, 1)
     return builder.as_markup(resize_keyboard=True)
 
 def get_orders_menu():
@@ -406,6 +400,26 @@ def get_categories_keyboard():
     builder.add(KeyboardButton(text="🔙 Назад"))
     builder.adjust(2, 2, 1)
     return builder.as_markup(resize_keyboard=True)
+
+def get_products_management_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(text="📦 Просмотреть все товары", callback_data="admin_products_view"))
+    builder.add(types.InlineKeyboardButton(text="🗑️ Удалить товар", callback_data="admin_products_delete"))
+    builder.add(types.InlineKeyboardButton(text="🔙 Назад", callback_data="admin_products_back"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+def get_products_list_keyboard(products, action):
+    builder = InlineKeyboardBuilder()
+    for product in products:
+        product_id, name_ru, name_uz, price = product
+        builder.add(types.InlineKeyboardButton(
+            text=f"{product_id}. {name_ru} - {format_price(price, 'ru')}", 
+            callback_data=f"{action}_{product_id}"
+        ))
+    builder.add(types.InlineKeyboardButton(text="🔙 Назад", callback_data="admin_products_back"))
+    builder.adjust(1)
+    return builder.as_markup()
 
 # ================== ТЕКСТЫ ==================
 def get_text(key, language):
@@ -598,6 +612,19 @@ def add_product(name_ru, name_uz, price, category_ru, category_uz, description_r
         conn.commit()
         return product_id
 
+def get_all_products():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name_ru, name_uz, price FROM products ORDER BY id DESC LIMIT 20")
+        return cursor.fetchall()
+
+def delete_product(product_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
 def get_all_reviews():
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -714,7 +741,7 @@ async def admin_panel(message: types.Message):
     await message.answer("🛠️ Добро пожаловать в админ-панель!", reply_markup=get_admin_menu())
 
 # Обработка админ-меню
-@dp.message(F.text.in_(["📊 Статистика", "📦 Заказы", "➕ Добавить товар", "📝 Отзывы", "🔙 Выйти из админки"]))
+@dp.message(F.text.in_(["📊 Статистика", "📦 Заказы", "➕ Добавить товар", "🛍️ Управление товарами", "📝 Отзывы", "🔙 Выйти из админки"]))
 async def handle_admin_commands(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
         return
@@ -740,6 +767,9 @@ async def handle_admin_commands(message: types.Message):
     elif message.text == "➕ Добавить товар":
         admin_sessions[message.from_user.id] = {'adding_product': True, 'step': 'category'}
         await message.answer("Выберите категорию товара:", reply_markup=get_categories_keyboard())
+        
+    elif message.text == "🛍️ Управление товарами":
+        await message.answer("🛍️ Управление товарами:", reply_markup=get_products_management_keyboard())
         
     elif message.text == "📝 Отзывы":
         reviews = get_all_reviews()
@@ -783,6 +813,149 @@ async def handle_product_category(message: types.Message):
     })
     
     await message.answer("Введите название товара на русском:", reply_markup=types.ReplyKeyboardRemove())
+
+@dp.message(F.text)
+async def handle_product_creation(message: types.Message):
+    user_id = message.from_user.id
+    if user_id not in ADMIN_IDS or not admin_sessions.get(user_id, {}).get('adding_product'):
+        return await handle_main_menu(message)
+    
+    session = admin_sessions[user_id]
+    step = session.get('step')
+    
+    if step == 'name_ru':
+        session['name_ru'] = message.text
+        session['step'] = 'name_uz'
+        await message.answer("Введите название товара на узбекском:")
+        
+    elif step == 'name_uz':
+        session['name_uz'] = message.text
+        session['step'] = 'price'
+        await message.answer("Введите цену товара (только цифры):")
+        
+    elif step == 'price':
+        try:
+            session['price'] = int(message.text)
+            session['step'] = 'description_ru'
+            await message.answer("Введите описание товара на русском:")
+        except ValueError:
+            await message.answer("❌ Неверный формат цены. Введите только цифры:")
+            
+    elif step == 'description_ru':
+        session['description_ru'] = message.text
+        session['step'] = 'description_uz'
+        await message.answer("Введите описание товара на узбекском:")
+        
+    elif step == 'description_uz':
+        session['description_uz'] = message.text
+        session['step'] = 'sizes_ru'
+        await message.answer("Введите размеры на русском (через запятую):")
+        
+    elif step == 'sizes_ru':
+        session['sizes_ru'] = message.text
+        session['step'] = 'sizes_uz'
+        await message.answer("Введите размеры на узбекском (через запятую):")
+        
+    elif step == 'sizes_uz':
+        session['sizes_uz'] = message.text
+        session['step'] = 'image'
+        await message.answer("Отправьте фото товара (или отправьте 'пропустить' чтобы добавить без фото):")
+        
+    elif step == 'image':
+        product_data = {
+            'name_ru': session['name_ru'],
+            'name_uz': session['name_uz'],
+            'price': session['price'],
+            'category_ru': session['category_ru'],
+            'category_uz': session['category_uz'],
+            'description_ru': session['description_ru'],
+            'description_uz': session['description_uz'],
+            'sizes_ru': session['sizes_ru'],
+            'sizes_uz': session['sizes_uz'],
+            'image_url': None
+        }
+        
+        product_id = add_product(**product_data)
+        del admin_sessions[user_id]
+        
+        await message.answer(f"✅ Товар успешно добавлен! ID: {product_id}", reply_markup=get_admin_menu())
+
+@dp.message(F.photo)
+async def handle_product_photo(message: types.Message):
+    user_id = message.from_user.id
+    if user_id not in ADMIN_IDS or not admin_sessions.get(user_id, {}).get('adding_product'):
+        return
+    
+    session = admin_sessions[user_id]
+    if session.get('step') == 'image':
+        product_data = {
+            'name_ru': session['name_ru'],
+            'name_uz': session['name_uz'],
+            'price': session['price'],
+            'category_ru': session['category_ru'],
+            'category_uz': session['category_uz'],
+            'description_ru': session['description_ru'],
+            'description_uz': session['description_uz'],
+            'sizes_ru': session['sizes_ru'],
+            'sizes_uz': session['sizes_uz'],
+            'image_url': message.photo[-1].file_id
+        }
+        
+        product_id = add_product(**product_data)
+        del admin_sessions[user_id]
+        
+        await message.answer(f"✅ Товар с фото успешно добавлен! ID: {product_id}", reply_markup=get_admin_menu())
+
+# Управление товарами
+@dp.callback_query(F.data.startswith("admin_products_"))
+async def handle_products_management_callback(callback: types.CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
+    action = callback.data
+    
+    if action == "admin_products_view":
+        products = get_all_products()
+        
+        if not products:
+            await callback.message.answer("📦 Товаров нет в базе данных")
+            return
+        
+        for product in products:
+            product_id, name_ru, name_uz, price = product
+            text = f"🆔 {product_id}\n🏷️ {name_ru}\n💵 {format_price(price, 'ru')}"
+            await callback.message.answer(text)
+        
+        await callback.message.answer("📦 Все товары показаны выше")
+    
+    elif action == "admin_products_delete":
+        products = get_all_products()
+        
+        if not products:
+            await callback.message.answer("📦 Товаров нет для удаления")
+            return
+        
+        await callback.message.answer("🗑️ Выберите товар для удаления:", 
+                                    reply_markup=get_products_list_keyboard(products, "delete_product"))
+    
+    elif action == "admin_products_back":
+        await callback.message.answer("🔙 Возврат в админ-панель", reply_markup=get_admin_menu())
+    
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("delete_product_"))
+async def handle_delete_product(callback: types.CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
+    product_id = int(callback.data.replace("delete_product_", ""))
+    
+    if delete_product(product_id):
+        await callback.message.answer(f"✅ Товар #{product_id} успешно удален")
+    else:
+        await callback.message.answer(f"❌ Ошибка при удалении товара #{product_id}")
+    
+    await callback.answer()
 
 # Просмотр заказов
 @dp.callback_query(F.data.startswith("admin_orders_"))
@@ -853,7 +1026,6 @@ async def handle_order_actions(callback: types.CallbackQuery):
         update_order_status(order_id, 'confirmed', callback.from_user.id)
         await callback.message.edit_text(f"✅ Заказ #{order_id} подтвержден")
         
-        # Уведомляем пользователя
         user_id = order[1]
         try:
             await bot.send_message(user_id, f"✅ Ваш заказ #{order_id} подтвержден! Скоро мы его отправим.")
@@ -864,7 +1036,6 @@ async def handle_order_actions(callback: types.CallbackQuery):
         update_order_status(order_id, 'cancelled', callback.from_user.id)
         await callback.message.edit_text(f"❌ Заказ #{order_id} отклонен")
         
-        # Уведомляем пользователя
         user_id = order[1]
         try:
             await bot.send_message(user_id, f"❌ Ваш заказ #{order_id} отклонен. Для уточнения деталей свяжитесь с нами.")
@@ -1379,7 +1550,7 @@ async def handle_size_selection(callback: types.CallbackQuery):
 async def show_cart_command(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
-        await message.answer("❌ Сначала завершите регистрацию")
+        await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
     language = user[2]
@@ -1558,7 +1729,7 @@ async def show_reviews_menu(message: types.Message):
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
     
-    language = user[2]
+    phone, name, language, region, post_office = user
     if language == 'ru':
         text = "⭐ Мнение клиентов\n\nЗдесь вы можете посмотреть отзывы наших клиентов или оставить свой отзыв!"
     else:
@@ -1571,7 +1742,7 @@ async def show_reviews(message: types.Message):
     if not user:
         return
     
-    language = user[2]
+    phone, name, language, region, post_office = user
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -1610,7 +1781,7 @@ async def start_review(message: types.Message):
     if not user:
         return
     
-    language = user[2]
+    phone, name, language, region, post_office = user
     
     if language == 'ru':
         text = (
