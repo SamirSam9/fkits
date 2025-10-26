@@ -8,7 +8,17 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters import Command
 from dotenv import load_dotenv
+from aiohttp import web
 import os
+async def handle(request):
+    return web.Response(text="Bot is running OK")
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
+    await site.start()
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -1894,7 +1904,11 @@ async def main():
         print("📍 Система доставки с почтовыми отделениями активирована!")
         print("🛠️ Админ-панель активирована!")
         
-        await dp.start_polling(bot)
+        await asyncio.gather(
+    start_web_server(),  # Запускаем веб-сервер
+    dp.start_polling(bot)  # Запускаем бота
+)
+
         
     except Exception as e:
         logger.error(f"❌ Критическая ошибка: {e}")
