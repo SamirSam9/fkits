@@ -2,6 +2,9 @@ import asyncio
 import logging
 import sqlite3
 import random
+from aiohttp import web
+from aiogram import Bot, Dispatcher, types
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
@@ -10,8 +13,10 @@ from aiogram.filters import Command
 from dotenv import load_dotenv
 from aiohttp import web
 import os
+
 async def handle(request):
     return web.Response(text="Bot is running OK")
+
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle)
@@ -31,6 +36,9 @@ API_TOKEN = os.getenv('API_TOKEN')
 if not API_TOKEN:
     logger.error("❌ API_TOKEN не найден! Проверьте файл .env")
     exit(1)
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
+PORT = int(os.getenv("PORT", 10000))
 
 CARD_NUMBER = os.getenv('CARD_NUMBER', '6262 4700 5534 4787')  
 ADMIN_IDS = [5009858379, 587180281, 1225271746]
@@ -151,46 +159,242 @@ def setup_database():
 POST_OFFICES = {
     'tashkent': {
         'ru': [
-            "📮 Чиланзарское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791001\n🗺️ Google: https://maps.app.goo.gl/example1",
-            "📮 Юнусабадское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791002\n🗺️ Google: https://maps.app.goo.gl/example2",
-            "📮 Мирзо-Улугбекское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791003\n🗺️ Google: https://maps.app.goo.gl/example3",
-            "📮 Шайхантахурское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791004\n🗺️ Google: https://maps.app.goo.gl/example4",
-            "📮 Алмазарское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5"
+            "📍 Ташкент - отправьте вашу геолокацию\n📞 Наш курьер свяжется с вами для уточнения адреса",
         ],
         'uz': [
-            "📮 Chilanzar OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791001\n🗺️ Google: https://maps.app.goo.gl/example1",
-            "📮 Yunusobod OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791002\n🗺️ Google: https://maps.app.goo.gl/example2",
-            "📮 Mirzo-Ulugʻbek OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791003\n🗺️ Google: https://maps.app.goo.gl/example3",
-            "📮 Shayxontoxur OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791004\n🗺️ Google: https://maps.app.goo.gl/example4",
-            "📮 Olmazor OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5"
+            "📍 Toshkent - joylashuvingizni yuboring\n📞 Bizning kuryerimiz manzilni aniqlash uchun siz bilan bog'lanadi",
+        ]
+    },
+    'andijan': {
+        'ru': [
+            "📮 Андижанское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791001\n🗺️ Google: https://maps.app.goo.gl/example1",
+            "📮 Андижанское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791002\n🗺️ Google: https://maps.app.goo.gl/example2",
+            "📮 Андижанское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791003\n🗺️ Google: https://maps.app.goo.gl/example3",
+            "📮 Андижанское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791004\n🗺️ Google: https://maps.app.goo.gl/example4",
+            "📮 Андижанское ОПС №5\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5",
+            "📮 Андижанское ОПС №6\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
+            "📮 Андижанское ОПС №7\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7"
+        ],
+        'uz': [
+            "📮 Andijon OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791001\n🗺️ Google: https://maps.app.goo.gl/example1",
+            "📮 Andijon OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791002\n🗺️ Google: https://maps.app.goo.gl/example2",
+            "📮 Andijon OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791003\n🗺️ Google: https://maps.app.goo.gl/example3",
+            "📮 Andijon OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791004\n🗺️ Google: https://maps.app.goo.gl/example4",
+            "📮 Andijon OПХ №5\n🗺️ Yandex: https://yandex.uz/maps/org/108225791005\n🗺️ Google: https://maps.app.goo.gl/example5",
+            "📮 Andijon OПХ №6\n🗺️ Yandex: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
+            "📮 Andijon OПХ №7\n🗺️ Yandex: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7"
+        ]
+    },
+    'bukhara': {
+        'ru': [
+            "📮 Бухарское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
+            "📮 Бухарское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
+            "📮 Бухарское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10",
+            "📮 Бухарское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791011\n🗺️ Google: https://maps.app.goo.gl/example11",
+            "📮 Бухарское ОПС №5\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791012\n🗺️ Google: https://maps.app.goo.gl/example12",
+            "📮 Бухарское ОПС №6\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791013\n🗺️ Google: https://maps.app.goo.gl/example13"
+        ],
+        'uz': [
+            "📮 Buxoro OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
+            "📮 Buxoro OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
+            "📮 Buxoro OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10",
+            "📮 Buxoro OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791011\n🗺️ Google: https://maps.app.goo.gl/example11",
+            "📮 Buxoro OПХ №5\n🗺️ Yandex: https://yandex.uz/maps/org/108225791012\n🗺️ Google: https://maps.app.goo.gl/example12",
+            "📮 Buxoro OПХ №6\n🗺️ Yandex: https://yandex.uz/maps/org/108225791013\n🗺️ Google: https://maps.app.goo.gl/example13"
+        ]
+    },
+    'fergana': {
+        'ru': [
+            "📮 Ферганское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791014\n🗺️ Google: https://maps.app.goo.gl/example14",
+            "📮 Ферганское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791015\n🗺️ Google: https://maps.app.goo.gl/example15",
+            "📮 Ферганское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791016\n🗺️ Google: https://maps.app.goo.gl/example16",
+            "📮 Ферганское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791017\n🗺️ Google: https://maps.app.goo.gl/example17",
+            "📮 Ферганское ОПС №5\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791018\n🗺️ Google: https://maps.app.goo.gl/example18"
+        ],
+        'uz': [
+            "📮 Farg'ona OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791014\n🗺️ Google: https://maps.app.goo.gl/example14",
+            "📮 Farg'ona OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791015\n🗺️ Google: https://maps.app.goo.gl/example15",
+            "📮 Farg'ona OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791016\n🗺️ Google: https://maps.app.goo.gl/example16",
+            "📮 Farg'ona OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791017\n🗺️ Google: https://maps.app.goo.gl/example17",
+            "📮 Farg'ona OПХ №5\n🗺️ Yandex: https://yandex.uz/maps/org/108225791018\n🗺️ Google: https://maps.app.goo.gl/example18"
+        ]
+    },
+    'jizzakh': {
+        'ru': [
+            "📮 Джизакское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791019\n🗺️ Google: https://maps.app.goo.gl/example19",
+            "📮 Джизакское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791020\n🗺️ Google: https://maps.app.goo.gl/example20",
+            "📮 Джизакское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791021\n🗺️ Google: https://maps.app.goo.gl/example21",
+            "📮 Джизакское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791022\n🗺️ Google: https://maps.app.goo.gl/example22"
+        ],
+        'uz': [
+            "📮 Jizzax OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791019\n🗺️ Google: https://maps.app.goo.gl/example19",
+            "📮 Jizzax OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791020\n🗺️ Google: https://maps.app.goo.gl/example20",
+            "📮 Jizzax OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791021\n🗺️ Google: https://maps.app.goo.gl/example21",
+            "📮 Jizzax OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791022\n🗺️ Google: https://maps.app.goo.gl/example22"
+        ]
+    },
+    'khorezm': {
+        'ru': [
+            "📮 Хорезмское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791023\n🗺️ Google: https://maps.app.goo.gl/example23",
+            "📮 Хорезмское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791024\n🗺️ Google: https://maps.app.goo.gl/example24",
+            "📮 Хорезмское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791025\n🗺️ Google: https://maps.app.goo.gl/example25",
+            "📮 Хорезмское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791026\n🗺️ Google: https://maps.app.goo.gl/example26"
+        ],
+        'uz': [
+            "📮 Xorazm OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791023\n🗺️ Google: https://maps.app.goo.gl/example23",
+            "📮 Xorazm OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791024\n🗺️ Google: https://maps.app.goo.gl/example24",
+            "📮 Xorazm OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791025\n🗺️ Google: https://maps.app.goo.gl/example25",
+            "📮 Xorazm OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791026\n🗺️ Google: https://maps.app.goo.gl/example26"
+        ]
+    },
+    'namangan': {
+        'ru': [
+            "📮 Наманганское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791027\n🗺️ Google: https://maps.app.goo.gl/example27",
+            "📮 Наманганское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791028\n🗺️ Google: https://maps.app.goo.gl/example28",
+            "📮 Наманганское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791029\n🗺️ Google: https://maps.app.goo.gl/example29",
+            "📮 Наманганское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791030\n🗺️ Google: https://maps.app.goo.gl/example30",
+            "📮 Наманганское ОПС №5\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791031\n🗺️ Google: https://maps.app.goo.gl/example31"
+        ],
+        'uz': [
+            "📮 Namangan OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791027\n🗺️ Google: https://maps.app.goo.gl/example27",
+            "📮 Namangan OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791028\n🗺️ Google: https://maps.app.goo.gl/example28",
+            "📮 Namangan OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791029\n🗺️ Google: https://maps.app.goo.gl/example29",
+            "📮 Namangan OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791030\n🗺️ Google: https://maps.app.goo.gl/example30",
+            "📮 Namangan OПХ №5\n🗺️ Yandex: https://yandex.uz/maps/org/108225791031\n🗺️ Google: https://maps.app.goo.gl/example31"
+        ]
+    },
+    'navoi': {
+        'ru': [
+            "📮 Навоийское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791032\n🗺️ Google: https://maps.app.goo.gl/example32",
+            "📮 Навоийское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791033\n🗺️ Google: https://maps.app.goo.gl/example33",
+            "📮 Навоийское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791034\n🗺️ Google: https://maps.app.goo.gl/example34"
+        ],
+        'uz': [
+            "📮 Navoiy OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791032\n🗺️ Google: https://maps.app.goo.gl/example32",
+            "📮 Navoiy OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791033\n🗺️ Google: https://maps.app.goo.gl/example33",
+            "📮 Navoiy OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791034\n🗺️ Google: https://maps.app.goo.gl/example34"
+        ]
+    },
+    'kashkadarya': {
+        'ru': [
+            "📮 Кашкадарьинское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791035\n🗺️ Google: https://maps.app.goo.gl/example35",
+            "📮 Кашкадарьинское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791036\n🗺️ Google: https://maps.app.goo.gl/example36",
+            "📮 Кашкадарьинское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791037\n🗺️ Google: https://maps.app.goo.gl/example37",
+            "📮 Кашкадарьинское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791038\n🗺️ Google: https://maps.app.goo.gl/example38"
+        ],
+        'uz': [
+            "📮 Qashqadaryo OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791035\n🗺️ Google: https://maps.app.goo.gl/example35",
+            "📮 Qashqadaryo OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791036\n🗺️ Google: https://maps.app.goo.gl/example36",
+            "📮 Qashqadaryo OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791037\n🗺️ Google: https://maps.app.goo.gl/example37",
+            "📮 Qashqadaryo OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791038\n🗺️ Google: https://maps.app.goo.gl/example38"
         ]
     },
     'samarkand': {
         'ru': [
-            "📮 Самаркандское ОПС\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
-            "📮 ОПС Сиаб\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7",
-            "📮 ОПС Регистан\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
-            "📮 ОПС Амира Темура\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
-            "📮 ОПС Ургут\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10"
+            "📮 Самаркандское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791039\n🗺️ Google: https://maps.app.goo.gl/example39",
+            "📮 Самаркандское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791040\n🗺️ Google: https://maps.app.goo.gl/example40",
+            "📮 Самаркандское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791041\n🗺️ Google: https://maps.app.goo.gl/example41",
+            "📮 Самаркандское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791042\n🗺️ Google: https://maps.app.goo.gl/example42",
+            "📮 Самаркандское ОПС №5\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791043\n🗺️ Google: https://maps.app.goo.gl/example43",
+            "📮 Самаркандское ОПС №6\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791044\n🗺️ Google: https://maps.app.goo.gl/example44"
         ],
         'uz': [
-            "📮 Samarqand OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791006\n🗺️ Google: https://maps.app.goo.gl/example6",
-            "📮 Siob OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791007\n🗺️ Google: https://maps.app.goo.gl/example7",
-            "📮 Registon OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791008\n🗺️ Google: https://maps.app.goo.gl/example8",
-            "📮 Amir Temur OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791009\n🗺️ Google: https://maps.app.goo.gl/example9",
-            "📮 Urgut OПХ\n🗺️ Yandex: https://yandex.uz/maps/org/108225791010\n🗺️ Google: https://maps.app.goo.gl/example10"
+            "📮 Samarqand OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791039\n🗺️ Google: https://maps.app.goo.gl/example39",
+            "📮 Samarqand OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791040\n🗺️ Google: https://maps.app.goo.gl/example40",
+            "📮 Samarqand OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791041\n🗺️ Google: https://maps.app.goo.gl/example41",
+            "📮 Samarqand OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791042\n🗺️ Google: https://maps.app.goo.gl/example42",
+            "📮 Samarqand OПХ №5\n🗺️ Yandex: https://yandex.uz/maps/org/108225791043\n🗺️ Google: https://maps.app.goo.gl/example43",
+            "📮 Samarqand OПХ №6\n🗺️ Yandex: https://yandex.uz/maps/org/108225791044\n🗺️ Google: https://maps.app.goo.gl/example44"
+        ]
+    },
+    'sirdarya': {
+        'ru': [
+            "📮 Сырдарьинское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791045\n🗺️ Google: https://maps.app.goo.gl/example45",
+            "📮 Сырдарьинское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791046\n🗺️ Google: https://maps.app.goo.gl/example46",
+            "📮 Сырдарьинское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791047\n🗺️ Google: https://maps.app.goo.gl/example47"
+        ],
+        'uz': [
+            "📮 Sirdaryo OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791045\n🗺️ Google: https://maps.app.goo.gl/example45",
+            "📮 Sirdaryo OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791046\n🗺️ Google: https://maps.app.goo.gl/example46",
+            "📮 Sirdaryo OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791047\n🗺️ Google: https://maps.app.goo.gl/example47"
+        ]
+    },
+    'surkhandarya': {
+        'ru': [
+            "📮 Сурхандарьинское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791048\n🗺️ Google: https://maps.app.goo.gl/example48",
+            "📮 Сурхандарьинское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791049\n🗺️ Google: https://maps.app.goo.gl/example49",
+            "📮 Сурхандарьинское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791050\n🗺️ Google: https://maps.app.goo.gl/example50",
+            "📮 Сурхандарьинское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791051\n🗺️ Google: https://maps.app.goo.gl/example51"
+        ],
+        'uz': [
+            "📮 Surxondaryo OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791048\n🗺️ Google: https://maps.app.goo.gl/example48",
+            "📮 Surxondaryo OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791049\n🗺️ Google: https://maps.app.goo.gl/example49",
+            "📮 Surxondaryo OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791050\n🗺️ Google: https://maps.app.goo.gl/example50",
+            "📮 Surxondaryo OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791051\n🗺️ Google: https://maps.app.goo.gl/example51"
+        ]
+    },
+    'tashkent_region': {
+        'ru': [
+            "📮 Ташкентское областное ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791052\n🗺️ Google: https://maps.app.goo.gl/example52",
+            "📮 Ташкентское областное ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791053\n🗺️ Google: https://maps.app.goo.gl/example53",
+            "📮 Ташкентское областное ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791054\n🗺️ Google: https://maps.app.goo.gl/example54",
+            "📮 Ташкентское областное ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791055\n🗺️ Google: https://maps.app.goo.gl/example55"
+        ],
+        'uz': [
+            "📮 Toshkent viloyati OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791052\n🗺️ Google: https://maps.app.goo.gl/example52",
+            "📮 Toshkent viloyati OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791053\n🗺️ Google: https://maps.app.goo.gl/example53",
+            "📮 Toshkent viloyati OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791054\n🗺️ Google: https://maps.app.goo.gl/example54",
+            "📮 Toshkent viloyati OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791055\n🗺️ Google: https://maps.app.goo.gl/example55"
+        ]
+    },
+    'karakalpakstan': {
+        'ru': [
+            "📮 Каракалпакское ОПС №1\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791056\n🗺️ Google: https://maps.app.goo.gl/example56",
+            "📮 Каракалпакское ОПС №2\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791057\n🗺️ Google: https://maps.app.goo.gl/example57",
+            "📮 Каракалпакское ОПС №3\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791058\n🗺️ Google: https://maps.app.goo.gl/example58",
+            "📮 Каракалпакское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/org/108225791059\n🗺️ Google: https://maps.app.goo.gl/example59"
+        ],
+        'uz': [
+            "📮 Qoraqalpog'iston OПХ №1\n🗺️ Yandex: https://yandex.uz/maps/org/108225791056\n🗺️ Google: https://maps.app.goo.gl/example56",
+            "📮 Qoraqalpog'iston OПХ №2\n🗺️ Yandex: https://yandex.uz/maps/org/108225791057\n🗺️ Google: https://maps.app.goo.gl/example57",
+            "📮 Qoraqalpog'iston OПХ №3\n🗺️ Yandex: https://yandex.uz/maps/org/108225791058\n🗺️ Google: https://maps.app.goo.gl/example58",
+            "📮 Qoraqalpog'iston OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/org/108225791059\n🗺️ Google: https://maps.app.goo.gl/example59"
         ]
     }
 }
 
 REGIONS = {
     'ru': {
-        'tashkent': '🏙️ Ташкент',
-        'samarkand': '🏙️ Самарканд'
+        'tashkent': '📍 Ташкент (город)',
+        'andijan': '🏙️ Андижанская область',
+        'bukhara': '🏙️ Бухарская область', 
+        'fergana': '🏙️ Ферганская область',
+        'jizzakh': '🏙️ Джизакская область',
+        'khorezm': '🏙️ Хорезмская область',
+        'namangan': '🏙️ Наманганская область',
+        'navoi': '🏙️ Навоийская область',
+        'kashkadarya': '🏙️ Кашкадарьинская область',
+        'samarkand': '🏙️ Самаркандская область',
+        'sirdarya': '🏙️ Сырдарьинская область',
+        'surkhandarya': '🏙️ Сурхандарьинская область',
+        'tashkent_region': '🏙️ Ташкентская область',
+        'karakalpakstan': '🏙️ Республика Каракалпакстан'
     },
     'uz': {
-        'tashkent': '🏙️ Toshkent',
-        'samarkand': '🏙️ Samarqand'
+        'tashkent': '📍 Toshkent (shahar)',
+        'andijan': '🏙️ Andijon viloyati',
+        'bukhara': '🏙️ Buxoro viloyati',
+        'fergana': '🏙️ Fargʻona viloyati',
+        'jizzakh': '🏙️ Jizzax viloyati',
+        'khorezm': '🏙️ Xorazm viloyati',
+        'namangan': '🏙️ Namangan viloyati',
+        'navoi': '🏙️ Navoiy viloyati',
+        'kashkadarya': '🏙️ Qashqadaryo viloyati',
+        'samarkand': '🏙️ Samarqand viloyati',
+        'sirdarya': '🏙️ Sirdaryo viloyati',
+        'surkhandarya': '🏙️ Surxondaryo viloyati',
+        'tashkent_region': '🏙️ Toshkent viloyati',
+        'karakalpakstan': '🏙️ Qoraqalpogʻiston Respublikasi'
     }
 }
 
@@ -219,6 +423,13 @@ def get_contact_keyboard(language):
         one_time_keyboard=True
     )
 
+def get_manual_phone_keyboard(language):
+    text = "🔙 Назад" if language == 'ru' else "🔙 Orqaga"
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=text)]],
+        resize_keyboard=True
+    )
+
 def get_region_keyboard(language):
     builder = ReplyKeyboardBuilder()
     regions = REGIONS[language]
@@ -237,6 +448,15 @@ def get_post_office_keyboard(region, language):
     builder.add(KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga"))
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True)
+
+def get_location_keyboard(language):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📍 Отправить геолокацию" if language == 'ru' else "📍 Geolokatsiyani yuborish", request_location=True)],
+            [KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga")]
+        ],
+        resize_keyboard=True
+    )
 
 def get_main_menu(language):
     builder = ReplyKeyboardBuilder()
@@ -443,8 +663,8 @@ def get_text(key, language):
             'uz': "📞 Davom etish uchun kontaktni ulashing yoki raqamni qo'lda kiriting:"
         },
         'manual_phone_request': {
-            'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567",
-            'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567"
+            'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567\n\n⚠️ На этот номер придёт SMS от почты с трек-номером!",
+            'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567\n\n⚠️ Ushbu raqamga pochta orqali trek raqami bilan SMS keladi!"
         },
         'region_request': {
             'ru': "🏙️ Выберите ваш регион для доставки:",
@@ -872,23 +1092,24 @@ async def handle_product_creation(message: types.Message):
         await message.answer("Отправьте фото товара (или отправьте 'пропустить' чтобы добавить без фото):")
         
     elif step == 'image':
-        product_data = {
-            'name_ru': session['name_ru'],
-            'name_uz': session['name_uz'],
-            'price': session['price'],
-            'category_ru': session['category_ru'],
-            'category_uz': session['category_uz'],
-            'description_ru': session['description_ru'],
-            'description_uz': session['description_uz'],
-            'sizes_ru': session['sizes_ru'],
-            'sizes_uz': session['sizes_uz'],
-            'image_url': None
-        }
-        
-        product_id = add_product(**product_data)
-        del admin_sessions[user_id]
-        
-        await message.answer(f"✅ Товар успешно добавлен! ID: {product_id}", reply_markup=get_admin_menu())
+        if message.text.lower() == 'пропустить':
+            product_data = {
+                'name_ru': session['name_ru'],
+                'name_uz': session['name_uz'],
+                'price': session['price'],
+                'category_ru': session['category_ru'],
+                'category_uz': session['category_uz'],
+                'description_ru': session['description_ru'],
+                'description_uz': session['description_uz'],
+                'sizes_ru': session['sizes_ru'],
+                'sizes_uz': session['sizes_uz'],
+                'image_url': None
+            }
+            
+            product_id = add_product(**product_data)
+            del admin_sessions[user_id]
+            
+            await message.answer(f"✅ Товар успешно добавлен! ID: {product_id}", reply_markup=get_admin_menu())
 
 @dp.message(F.photo)
 async def handle_product_photo(message: types.Message):
@@ -1090,7 +1311,7 @@ async def handle_manual_phone_request(message: types.Message):
     language = session.get('language', 'ru')
     user_sessions[user_id]['step'] = 'manual_phone'
     
-    await message.answer(get_text('manual_phone_request', language), reply_markup=get_back_menu(language))
+    await message.answer(get_text('manual_phone_request', language), reply_markup=get_manual_phone_keyboard(language))
 
 # ОБРАБОТКА РУЧНОГО ВВОДА НОМЕРА
 @dp.message(F.text.startswith('+'))
@@ -1166,17 +1387,23 @@ async def handle_text_messages(message: types.Message):
         user_sessions[user_id]['step'] = 'post_office'
         user_sessions[user_id]['region'] = selected_region
         
-        if selected_region in POST_OFFICES:
-            offices = POST_OFFICES[selected_region][language]
-            for office in offices:
-                await message.answer(office)
-            
-            await message.answer(get_text('post_office_request', language), 
-                               reply_markup=get_post_office_keyboard(selected_region, language))
+        if selected_region == 'tashkent':
+            # Для Ташкента просим геолокацию
+            if language == 'ru':
+                await message.answer("📍 Ташкент - отправьте вашу геолокацию\n📞 Наш курьер свяжется с вами для уточнения адреса", 
+                                   reply_markup=get_location_keyboard(language))
+            else:
+                await message.answer("📍 Toshkent - joylashuvingizni yuboring\n📞 Bizning kuryerimiz manzilni aniqlash uchun siz bilan bog'lanadi",
+                                   reply_markup=get_location_keyboard(language))
         else:
-            save_user(user_id, session['phone'], session['name'], language, selected_region)
-            user_sessions[user_id]['step'] = 'main_menu'
-            await message.answer("✅ Регистрация завершена!", reply_markup=get_main_menu(language))
+            # Для других регионов показываем почтовые отделения
+            if selected_region in POST_OFFICES:
+                offices = POST_OFFICES[selected_region][language]
+                for office in offices:
+                    await message.answer(office)
+                
+                await message.answer(get_text('post_office_request', language), 
+                                   reply_markup=get_post_office_keyboard(selected_region, language))
         return
     
     # Если пользователь выбирает почтовое отделение
@@ -1200,6 +1427,27 @@ async def handle_text_messages(message: types.Message):
     
     # Обработка главного меню
     await handle_main_menu(message)
+
+# ОБРАБОТКА ГЕОЛОКАЦИИ ДЛЯ ТАШКЕНТА
+@dp.message(F.location)
+async def handle_location(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    
+    if session.get('step') == 'post_office' and session.get('region') == 'tashkent':
+        language = session.get('language', 'ru')
+        location_text = f"📍 Геолокация получена: {message.location.latitude}, {message.location.longitude}"
+        
+        save_user(user_id, session['phone'], session['name'], language, 'tashkent', location_text)
+        user_sessions[user_id]['step'] = 'main_menu'
+        user_sessions[user_id]['post_office'] = location_text
+        
+        if language == 'ru':
+            await message.answer("✅ Геолокация получена! Курьер свяжется с вами для уточнения адреса.", 
+                               reply_markup=get_main_menu(language))
+        else:
+            await message.answer("✅ Geolokatsiya qabul qilindi! Kuryer manzilni aniqlash uchun siz bilan bog'lanadi.",
+                               reply_markup=get_main_menu(language))
 
 # ОБРАБОТКА ГЛАВНОГО МЕНЮ
 async def handle_main_menu(message: types.Message):
@@ -1905,10 +2153,9 @@ async def main():
         print("🛠️ Админ-панель активирована!")
         
         await asyncio.gather(
-    start_web_server(),  # Запускаем веб-сервер
-    dp.start_polling(bot)  # Запускаем бота
-)
-
+            start_web_server(),
+            dp.start_polling(bot)
+        )
         
     except Exception as e:
         logger.error(f"❌ Критическая ошибка: {e}")
