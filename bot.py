@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import random
 from aiohttp import web
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types, F, router
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
@@ -19,7 +19,7 @@ async def handle(request):
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 load_dotenv()
-
+registered_users = set()
 # ================== НАСТРОЙКИ ==================
 API_TOKEN = os.getenv('API_TOKEN')
 if not API_TOKEN:
@@ -40,6 +40,46 @@ CUSTOMIZATION_PRICE = 50000
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
+@router.message(Command("start"))
+async def start_handler(message: types.Message):
+    user_id = message.from_user.id
+    first_name = message.from_user.first_name
+    
+    # Логируем подробно
+    logger.info(f"🚀 START от пользователя: ID={user_id}, Имя={first_name}")
+    
+    # Регистрируем пользователя
+    registered_users.add(user_id)
+    logger.info(f"✅ ПОЛЬЗОВАТЕЛЬ ЗАРЕГИСТРИРОВАН: {user_id}")
+    
+    await message.answer("✅ Регистрация завершена! Теперь вы можете использовать бота.")
+
+@router.message()
+async def all_messages_handler(message: types.Message):
+    user_id = message.from_user.id
+    text = message.text or "No text"
+    
+    logger.info(f"📨 Сообщение от {user_id}: '{text}'")
+    
+    # Проверяем регистрацию
+    if user_id not in registered_users:
+        logger.warning(f"❌ ОТКАЗ: Пользователь {user_id} не зарегистрирован!")
+        await message.answer("❌ Для использования бота необходимо завершить регистрацию. Нажмите /start")
+        return
+    
+    logger.info(f"✅ ДОСТУП РАЗРЕШЕН: Пользователь {user_id} зарегистрирован")
+    await message.answer("✅ Вы зарегистрированы! Бот работает.")
+
+# Добавьте команду для сброса (на случай если застряли)
+@router.message(Command("reset"))
+async def reset_handler(message: types.Message):
+    user_id = message.from_user.id
+    if user_id in registered_users:
+        registered_users.remove(user_id)
+        logger.info(f"🔄 СБРОС регистрации для пользователя: {user_id}")
+        await message.answer("🔔 Регистрация сброшена. Нажмите /start для новой регистрации.")
+    else:
+        await message.answer("ℹ️ Вы еще не зарегистрированы. Нажмите /start")
 # ================== БАЗА ДАННЫХ ==================
 def setup_database():
     try:
