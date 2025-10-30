@@ -1127,18 +1127,28 @@ async def start_bot(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
 
-    # Всегда сбрасываем состояние и начинаем с чистого листа
+    # Всегда очищаем состояние и создаём новую сессию
     user_sessions[user_id] = {'step': 'language'}
 
-    if user:
-        language = user[2]
-        if user_id in ADMIN_IDS:
-            await admin_panel(message)
-        else:
-            text = get_text('welcome_back', language)
-            await message.answer(text, reply_markup=get_main_menu(language))
-    else:
+    # Если пользователь не зарегистрирован — предлагаем выбрать язык
+    if not user:
         await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
+        return
+
+    # Если пользователь есть, но у него не сохранён язык — повторная регистрация
+    if not user[2]:
+        await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
+        return
+
+    language = user[2]
+
+    # Проверка на админа
+    if user_id in ADMIN_IDS:
+        await admin_panel(message)
+    else:
+        text = get_text('welcome_back', language)
+        await message.answer(text, reply_markup=get_main_menu(language))
+
 
 # ВЫБОР ЯЗЫКА
 @dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇿 O'zbekcha"]))
