@@ -40,15 +40,23 @@ CUSTOMIZATION_PRICE = 50000
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Создаем router
+router = Router()
+
+# Временное хранилище для регистрации
+registered_users = set()
+
 @router.message(Command("start"))
 async def start_handler(message: types.Message):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     
-    # Логируем подробно
     logger.info(f"🚀 START от пользователя: ID={user_id}, Имя={first_name}")
     
-    # Регистрируем пользователя
     registered_users.add(user_id)
     logger.info(f"✅ ПОЛЬЗОВАТЕЛЬ ЗАРЕГИСТРИРОВАН: {user_id}")
     
@@ -61,7 +69,6 @@ async def all_messages_handler(message: types.Message):
     
     logger.info(f"📨 Сообщение от {user_id}: '{text}'")
     
-    # Проверяем регистрацию
     if user_id not in registered_users:
         logger.warning(f"❌ ОТКАЗ: Пользователь {user_id} не зарегистрирован!")
         await message.answer("❌ Для использования бота необходимо завершить регистрацию. Нажмите /start")
@@ -70,16 +77,13 @@ async def all_messages_handler(message: types.Message):
     logger.info(f"✅ ДОСТУП РАЗРЕШЕН: Пользователь {user_id} зарегистрирован")
     await message.answer("✅ Вы зарегистрированы! Бот работает.")
 
-# Добавьте команду для сброса (на случай если застряли)
-@router.message(Command("reset"))
-async def reset_handler(message: types.Message):
-    user_id = message.from_user.id
-    if user_id in registered_users:
-        registered_users.remove(user_id)
-        logger.info(f"🔄 СБРОС регистрации для пользователя: {user_id}")
-        await message.answer("🔔 Регистрация сброшена. Нажмите /start для новой регистрации.")
-    else:
-        await message.answer("ℹ️ Вы еще не зарегистрированы. Нажмите /start")
+async def main():
+    bot = Bot(token="YOUR_BOT_TOKEN")  # ЗАМЕНИТЕ НА ВАШ ТОКЕН
+    dp = Dispatcher()
+    dp.include_router(router)
+    
+    logger.info("🚀 Бот запускается...")
+    await dp.start_polling(bot)
 # ================== БАЗА ДАННЫХ ==================
 def setup_database():
     try:
