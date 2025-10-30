@@ -3,13 +3,14 @@ import logging
 import sqlite3
 import random
 from aiohttp import web
-from aiogram import Bot, Dispatcher, types, F, Router
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters import Command
 from dotenv import load_dotenv
+from aiogram.router import Router
 import os
 
 async def handle(request):
