@@ -15,14 +15,6 @@ import os
 async def handle(request):
     return web.Response(text="Bot is running OK")
 
-async def start_web_server():
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
-    await site.start()
-
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -1029,7 +1021,7 @@ async def handle_admin_commands(message: types.Message):
 async def handle_product_category(message: types.Message):
     if message.from_user.id not in ADMIN_IDS or not admin_sessions.get(message.from_user.id, {}).get('adding_product'):
         return
-   
+    
     category_map = {
         "👕 Формы 2025/2026": ("Формы 2025/2026", "2025/2026 Formalari"),
         "🕰️ Ретро формы": ("Ретро", "Retro"),
@@ -1464,11 +1456,12 @@ async def handle_location(message: types.Message):
 async def handle_main_menu(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
-   
+    
+    # ЕСЛИ ПОЛЬЗОВАТЕЛЬ НЕ ЗАРЕГИСТРИРОВАН, ПРЕДЛАГАЕМ НАЧАТЬ СНАЧАЛА
     if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
+        await message.answer("❌ Для использования бота необходимо завершить регистрацию. Нажмите /start")
         return
-   
+    
     phone, name, language, region, post_office = user
     text = message.text
    
@@ -2161,10 +2154,35 @@ async def main():
         print("📍 Система доставки с почтовыми отделениями активирована!")
         print("🛠️ Админ-панель активирована!")
        
-        await asyncio.gather(
-            start_web_server(),
-            dp.start_polling(bot)
+        # СОЗДАЕМ aiohttp ПРИЛОЖЕНИЕ ДЛЯ WEBHOOK
+        app = web.Application()
+        app.router.add_get("/", handle)
+
+        # СОЗДАЕМ И РЕГИСТРИРУЕМ WEBHOOK ОБРАБОТЧИК
+        webhook_requests_handler = SimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
         )
+        webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+
+        # НАСТРАИВАЕМ ПРИЛОЖЕНИЕ
+        setup_application(app, dp, bot=bot)
+
+        # ЗАПУСКАЕМ СЕРВЕР
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", PORT)
+        await site.start()
+
+        print(f"✅ Webhook сервер запущен на порту {PORT}")
+        print(f"🔗 Webhook URL: {WEBHOOK_URL}")
+
+        # УСТАНАВЛИВАЕМ WEBHOOK В TELEGRAM
+        await bot.set_webhook(WEBHOOK_URL)
+        print("✅ Webhook установлен в Telegram")
+
+        # БЕСКОНЕЧНЫЙ ЦИКЛ ДЛЯ ПОДДЕРЖАНИЯ РАБОТЫ СЕРВЕРА
+        await asyncio.Event().wait()
        
     except Exception as e:
         logger.error(f"❌ Критическая ошибка: {e}")
