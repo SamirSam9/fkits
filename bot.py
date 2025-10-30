@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import random
 from aiohttp import web
-from aiogram import Bot, Dispatcher, types, F, router
+from aiogram import Bot, Dispatcher, types, F, Router
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
