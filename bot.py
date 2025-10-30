@@ -717,10 +717,14 @@ def save_user(user_id, phone, name, language, region=None, post_office=None):
         conn.commit()
 
 def get_user(user_id):
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT phone, name, language, region, post_office FROM users WHERE user_id = ?", (user_id,))
-        return cursor.fetchone()
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT phone, name, language, region, post_office FROM users WHERE user_id = ?", (user_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Ошибка получения пользователя {user_id}: {e}")
+        return None
 
 def get_products_by_category(category, language):
     with get_db_connection() as conn:
@@ -1284,6 +1288,9 @@ async def start_bot(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
     
+    # Всегда сбрасываем состояние и начинаем с чистого листа
+    user_sessions[user_id] = {'step': 'language'}
+    
     if user:
         language = user[2]
         if user_id in ADMIN_IDS:
@@ -1292,7 +1299,6 @@ async def start_bot(message: types.Message):
             text = get_text('welcome_back', language)
             await message.answer(text, reply_markup=get_main_menu(language))
     else:
-        user_sessions[user_id] = {'step': 'language'}
         await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
 
 # ВЫБОР ЯЗЫКА
