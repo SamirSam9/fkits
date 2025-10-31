@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: fkits
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: API_TOKEN
+        value: API_TOKEN=8322636763:AAHyqLDD-voqN6MjUD8XKV8v7Jc5FnENuv8
+      - key: CARD_NUMBER  
+        value: 6262 4700 5534 4787
+      - key: PORT
+        value: 10000

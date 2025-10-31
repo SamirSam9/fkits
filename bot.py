@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sqlite3
 import random
+import traceback  # ← ДОБАВЬТЕ ЭТОТ ИМПОРТ
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -17,6 +18,22 @@ async def handle(request):
     return web.Response(text="Bot is running OK")
 
 async def start_web_server():
+    try:
+        app = web.Application()
+        app.router.add_get("/", handle)
+        
+        runner = web.AppRunner(app)
+        await runner.setup()
+        
+        port = int(os.getenv("PORT", 10000))
+        site = web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        
+        logger.info(f"🌐 Веб-сервер запущен на порту {port}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Ошибка веб-сервера: {e}")
+        return False
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
