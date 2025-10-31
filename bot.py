@@ -365,7 +365,7 @@ def get_cart_keyboard(language):
         builder.add(KeyboardButton(text="🛒 Корзина"))
         builder.add(KeyboardButton(text="➕ Добавить еще товар"))
         builder.add(KeyboardButton(text="💳 Оформить заказ"))
-        builder.add(KeyboardButton(text="🗑️ Очистить корзину"))
+        builder.add(KeyboardButton(text="🗑️ Очистить корзина"))
         builder.add(KeyboardButton(text="🔙 Главное меню"))
     else:
         builder.add(KeyboardButton(text="🛒 Savat"))
@@ -1127,27 +1127,22 @@ async def start_bot(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
 
-    # Всегда очищаем состояние и создаём новую сессию
-    user_sessions[user_id] = {'step': 'language'}
-
-    # Если пользователь не зарегистрирован — предлагаем выбрать язык
-    if not user:
-        await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
-        return
-
-    # Если пользователь есть, но у него не сохранён язык — повторная регистрация
-    if not user[2]:
-        await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
-        return
-
-    language = user[2]
-
-    # Проверка на админа
-    if user_id in ADMIN_IDS:
-        await admin_panel(message)
+    # Простая и понятная логика как в рабочем коде
+    if user:
+        # Пользователь найден - сразу в главное меню
+        language = user[2]
+        
+        # Проверка на админа (оставляем вашу фичу)
+        if user_id in ADMIN_IDS:
+            await admin_panel(message)
+        else:
+            text = get_text('welcome_back', language)
+            await message.answer(text, reply_markup=get_main_menu(language))
     else:
-        text = get_text('welcome_back', language)
-        await message.answer(text, reply_markup=get_main_menu(language))
+        # Новый пользователь - начинаем регистрацию
+        user_sessions[user_id] = {'step': 'language'}
+        await message.answer(get_text('welcome', 'ru'), 
+                           reply_markup=get_language_keyboard())
 
 
 # ВЫБОР ЯЗЫКА
