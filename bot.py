@@ -5,6 +5,7 @@ import random
 import traceback
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
@@ -13,7 +14,6 @@ from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -40,7 +40,7 @@ CUSTOMIZATION_PRICE = 50000
 # Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
+dp = Dispatcher(storage=storage)
 
 # ================== СИСТЕМА РОЛЕЙ ==================
 USER_ROLES = {}
@@ -318,7 +318,7 @@ def setup_database():
         logger.error(f"❌ Ошибка базы данных: {e}")
         raise
 
-# ... ОСТАЛЬНОЙ КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ...
+# ... ОСТАВШИЙСЯ КОД ПРОДОЛЖАЕТСЯ ...
 # ================== РЕГИОНЫ И ПОЧТЫ (100% РЕАЛЬНЫЕ ССЫЛКИ) ==================
 POST_OFFICES = {
     'tashkent': {
