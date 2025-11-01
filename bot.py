@@ -13,17 +13,28 @@ from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+dp = Dispatcher(bot, storage=storage)
 
-def get_admin_switch_keyboard():
-    """Клавиатура для переключения в режим админа"""
-    keyboard = InlineKeyboardMarkup(row_width=2)
-    keyboard.add(
-        InlineKeyboardButton("✅ Да, перейти в админку", callback_data="switch_to_admin"),
-        InlineKeyboardButton("❌ Нет, остаться", callback_data="cancel_switch")
-    )
-    return keyboard
 
-@dp.callback_query_handler(lambda c: c.data in ['switch_to_admin', 'cancel_switch'])
+@dp.callback_query(F.data.in_(['switch_to_admin', 'cancel_switch']))
+async def process_role_switch(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    
+    if callback_query.data == 'switch_to_admin':
+        # Переключаем в режим админа
+        USER_ROLES[user_id] = 'admin'
+        await callback_query.message.edit_text(
+            "✅ Вы перешли в режим админа. Теперь вы будете получать полные уведомления о заказах.",
+            reply_markup=None
+        )
+    else:
+        # Остаемся в режиме пользователя
+        await callback_query.message.edit_text(
+            "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
+            reply_markup=None
+        )
+    
+    await callback_query.answer()
 async def process_role_switch(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     
@@ -69,8 +80,13 @@ def get_admin_help_keyboard():
     return builder.as_markup()
 
 
-async def notify_admins_with_role_check(text, photo_id=None, order_id=None):
+async def notify_admins_with_role_check(text, photo_file_id=None, order_id=None):
     """Уведомление админов с проверкой роли"""
+    # Инициализация ролей для админов (на всякий случай)
+    for admin_id in ADMIN_IDS:
+        if admin_id not in USER_ROLES:
+            USER_ROLES[admin_id] = 'admin'
+    
     for admin_id in ADMIN_IDS:
         try:
             # Если админ в режиме пользователя - предлагаем переключиться
@@ -79,13 +95,12 @@ async def notify_admins_with_role_check(text, photo_id=None, order_id=None):
                 await bot.send_message(admin_id, switch_text, reply_markup=get_admin_switch_keyboard())
             else:
                 # Админ уже в режиме админа - обычное уведомление
-                if photo_id:
-                    await bot.send_photo(admin_id, photo_id, caption=text)
+                if photo_file_id:
+                    await bot.send_photo(admin_id, photo_file_id, caption=text)
                 else:
                     await bot.send_message(admin_id, text)
         except Exception as e:
             logging.error(f"Ошибка отправки админу {admin_id}: {e}")
-
 
 # --------- простой веб-сервер для проверки работы ----------------
 async def handle(request):
@@ -130,7 +145,11 @@ CARD_NUMBER = os.getenv('CARD_NUMBER', '6262 4700 5534 4787')  # 🔸 ЗАМЕН
 
 # Админы - заглушка (добавьте свои Telegram ID)
 ADMIN_IDS = [5009858379,587180281,1225271746]  
-
+# ДОБАВЬТЕ ПОСЛЕ ОПРЕДЕЛЕНИЯ ADMIN_IDS (строка 85):
+# Инициализация ролей для админов
+for admin_id in ADMIN_IDS:
+    if admin_id not in USER_ROLES:
+        USER_ROLES[admin_id] = 'admin'  # По умолчанию все админы в режиме админа
 # Константы
 ORDER_NEW = 'new'
 ORDER_WAITING_CONFIRM = 'waiting_confirm'
@@ -2658,6 +2677,13 @@ async def start_bot(message: types.Message):
         user_sessions[user_id] = {'step': 'language'}
         await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
 
+@dp.callback_query(F.data == "stay_user")
+async def handle_stay_user(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
+        reply_markup=None
+    )
+    await callback.answer()
         # Обработчик выбора роли
 @dp.callback_query(F.data.startswith("role_"))
 async def handle_role_selection(callback: types.CallbackQuery):
