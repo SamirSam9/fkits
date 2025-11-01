@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sqlite3
 import random
-import traceback  # ← ДОБАВЬТЕ ЭТОТ ИМПОРТ
+import traceback
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -13,49 +13,42 @@ from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+load_dotenv()
+
+# ================== НАСТРОЙКИ ==================
+API_TOKEN = os.getenv('API_TOKEN', '8322636763:AAHyqLDD-voqN6MjUD8XKV8v7Jc5FnENuv8')
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME', 'fkits.onrender.com')}{WEBHOOK_PATH}"
+PORT = int(os.getenv("PORT", 10000))
+CARD_NUMBER = os.getenv('CARD_NUMBER', '6262 4700 5534 4787')
+
+# Админы
+ADMIN_IDS = [5009858379, 587180281, 1225271746]  
+
+# Константы
+ORDER_NEW = 'new'
+ORDER_WAITING_CONFIRM = 'waiting_confirm'
+ORDER_CONFIRMED = 'confirmed'
+ORDER_CANCELLED = 'cancelled'
+CUSTOMIZATION_PRICE = 50000
+
+# Инициализация бота и диспетчера
+bot = Bot(token=API_TOKEN)
+storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
-
-
-@dp.callback_query(F.data.in_(['switch_to_admin', 'cancel_switch']))
-async def process_role_switch(callback_query: types.CallbackQuery):
-    user_id = callback_query.from_user.id
-    
-    if callback_query.data == 'switch_to_admin':
-        # Переключаем в режим админа
-        USER_ROLES[user_id] = 'admin'
-        await callback_query.message.edit_text(
-            "✅ Вы перешли в режим админа. Теперь вы будете получать полные уведомления о заказах.",
-            reply_markup=None
-        )
-    else:
-        # Остаемся в режиме пользователя
-        await callback_query.message.edit_text(
-            "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
-            reply_markup=None
-        )
-    
-    await callback_query.answer()
-async def process_role_switch(callback_query: types.CallbackQuery):
-    user_id = callback_query.from_user.id
-    
-    if callback_query.data == 'switch_to_admin':
-        # Переключаем в режим админа
-        USER_ROLES[user_id] = 'admin'
-        await callback_query.message.edit_text(
-            "✅ Вы перешли в режим админа. Теперь вы будете получать полные уведомления о заказах.",
-            reply_markup=None
-        )
-    else:
-        # Остаемся в режиме пользователя
-        await callback_query.message.edit_text(
-            "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
-            reply_markup=None
-        )
-    
-    await callback_query.answer()
 
 # ================== СИСТЕМА РОЛЕЙ ==================
 USER_ROLES = {}
+
+# Инициализация ролей для админов
+for admin_id in ADMIN_IDS:
+    if admin_id not in USER_ROLES:
+        USER_ROLES[admin_id] = 'admin'  # По умолчанию все админы в режиме админа
 
 def get_role_selection_keyboard():
     builder = InlineKeyboardBuilder()
@@ -79,14 +72,8 @@ def get_admin_help_keyboard():
     builder.adjust(1)
     return builder.as_markup()
 
-
 async def notify_admins_with_role_check(text, photo_file_id=None, order_id=None):
     """Уведомление админов с проверкой роли"""
-    # Инициализация ролей для админов (на всякий случай)
-    for admin_id in ADMIN_IDS:
-        if admin_id not in USER_ROLES:
-            USER_ROLES[admin_id] = 'admin'
-    
     for admin_id in ADMIN_IDS:
         try:
             # Если админ в режиме пользователя - предлагаем переключиться
@@ -102,63 +89,109 @@ async def notify_admins_with_role_check(text, photo_file_id=None, order_id=None)
         except Exception as e:
             logging.error(f"Ошибка отправки админу {admin_id}: {e}")
 
-# --------- простой веб-сервер для проверки работы ----------------
-async def handle(request):
-    return web.Response(text="Bot is running OK")
+# Обработчики callback-запросов
+@dp.callback_query(F.data.in_(['switch_to_admin', 'stay_user']))
+async def process_role_switch(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    
+    if callback_query.data == 'switch_to_admin':
+        # Переключаем в режим админа
+        USER_ROLES[user_id] = 'admin'
+        await callback_query.message.edit_text(
+            "✅ Вы перешли в режим админа. Теперь вы будете получать полные уведомления о заказах.",
+            reply_markup=None
+        )
+    else:
+        # Остаемся в режиме пользователя
+        await callback_query.message.edit_text(
+            "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
+            reply_markup=None
+        )
+    
+    await callback_query.answer()
 
-async def start_web_server():
-    try:
-        app = web.Application()
-        app.router.add_get("/", handle)
-        
-        runner = web.AppRunner(app)
-        await runner.setup()
-        
-        port = int(os.getenv("PORT", 10000))
-        site = web.TCPSite(runner, "0.0.0.0", port)
-        await site.start()
-        
-        logger.info(f"🌐 Веб-сервер запущен на порту {port}")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Ошибка веб-сервера: {e}")
-        return False
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
-    await site.start()
+@dp.callback_query(F.data.startswith("role_"))
+async def handle_role_selection(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    role = callback.data.replace("role_", "")
+    
+    USER_ROLES[user_id] = role
+    
+    if role == 'admin':
+        admin_sessions[user_id] = {'is_admin': True}
+        await callback.message.edit_text("🛠️ Добро пожаловать в админ-панель!")
+        await callback.message.answer("📋 Выберите действие:", reply_markup=get_admin_menu())
+    else:
+        user = get_user(user_id)
+        language = user[2] if user else 'ru'
+        await callback.message.edit_text(get_text('welcome_back', language))
+        await callback.message.answer("📋 Главное меню:", reply_markup=get_main_menu(language))
+    
+    await callback.answer()
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-load_dotenv()
+# Другие callback-обработчики
+@dp.callback_query(F.data == "admin_commands")
+async def handle_admin_commands_help(callback: types.CallbackQuery):
+    help_text = """
+<b>КОМАНДЫ АДМИНИСТРАТОРА</b>
 
-# ================== НАСТРОЙКИ ==================
-# ЗАГЛУШКИ - ВАМ НУЖНО БУДЕТ ЗАМЕНИТЬ:
-API_TOKEN = os.getenv('API_TOKEN', '8322636763:AAHyqLDD-voqN6MjUD8XKV8v7Jc5FnENuv8')  # 🔸 ЗАМЕНИТЕ НА РЕАЛЬНЫЙ ТОКЕН
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME', 'fkits.onrender.com')}{WEBHOOK_PATH}"  # 🔸 ЗАМЕНИТЕ НА ВАШ ДОМЕН
-PORT = int(os.getenv("PORT", 10000))
-CARD_NUMBER = os.getenv('CARD_NUMBER', '6262 4700 5534 4787')  # 🔸 ЗАМЕНИТЕ НА РЕАЛЬНЫЙ НОМЕР КАРТЫ
+<b>Основные команды:</b>
+/start - Запуск с выбором роли
+/admin - Вход в админ-панель  
+/help - Полная справка
 
-# Админы - заглушка (добавьте свои Telegram ID)
-ADMIN_IDS = [5009858379,587180281,1225271746]  
-# ДОБАВЬТЕ ПОСЛЕ ОПРЕДЕЛЕНИЯ ADMIN_IDS (строка 85):
-# Инициализация ролей для админов
-for admin_id in ADMIN_IDS:
-    if admin_id not in USER_ROLES:
-        USER_ROLES[admin_id] = 'admin'  # По умолчанию все админы в режиме админа
-# Константы
-ORDER_NEW = 'new'
-ORDER_WAITING_CONFIRM = 'waiting_confirm'
-ORDER_CONFIRMED = 'confirmed'
-ORDER_CANCELLED = 'cancelled'
-CUSTOMIZATION_PRICE = 50000  # 50,000 UZS за кастомизацию
+<b>Функции админ-панели:</b>
+• Статистика - общая статистика магазина
+• Заказы - управление всеми заказами
+• Добавить товар - пошаговое добавление
+• Управление товарами - просмотр/удаление
+• Отзывы - просмотр отзывов клиентов
+    """
+    await callback.message.answer(help_text, parse_mode='HTML')
+    await callback.answer()
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+@dp.callback_query(F.data == "admin_orders_help")
+async def handle_admin_orders_help(callback: types.CallbackQuery):
+    help_text = """
+<b>УПРАВЛЕНИЕ ЗАКАЗАМИ</b>
+
+<b>Статусы заказов:</b>
+Новый - Только создан
+Ожидает подтверждения - Чек отправлен
+Подтвержден - Оплата проверена
+Отклонен - Проблема с оплатой
+
+<b>Действия с заказами:</b>
+• Подтвердить - после проверки чека
+• Отклонить - при проблемах с оплатой  
+• Связаться - для уточнения деталей
+    """
+    await callback.message.answer(help_text, parse_mode='HTML')
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_products_help")
+async def handle_admin_products_help(callback: types.CallbackQuery):
+    help_text = """
+<b>УПРАВЛЕНИЕ ТОВАРАМИ</b>
+
+<b>Добавление товара:</b>
+1. Выберите категорию
+2. Введите название на русском
+3. Введите название на узбекском  
+4. Укажите цену
+5. Добавьте описание
+6. Укажите размеры
+7. Загрузите фото
+
+<b>Категории:</b>
+• Формы 2024/2025
+• Ретро формы
+• Бутсы
+• Фут. атрибутика
+• Акции
+    """
+    await callback.message.answer(help_text, parse_mode='HTML')
+    await callback.answer()
 
 # ================== БАЗА ДАННЫХ ==================
 DB_FILENAME = 'football_shop.db'
@@ -285,6 +318,7 @@ def setup_database():
         logger.error(f"❌ Ошибка базы данных: {e}")
         raise
 
+# ... ОСТАЛЬНОЙ КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ...
 # ================== РЕГИОНЫ И ПОЧТЫ (100% РЕАЛЬНЫЕ ССЫЛКИ) ==================
 POST_OFFICES = {
     'tashkent': {
