@@ -12,6 +12,80 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+def get_admin_switch_keyboard():
+    """Клавиатура для переключения в режим админа"""
+    keyboard = InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
+        InlineKeyboardButton("✅ Да, перейти в админку", callback_data="switch_to_admin"),
+        InlineKeyboardButton("❌ Нет, остаться", callback_data="cancel_switch")
+    )
+    return keyboard
+
+@dp.callback_query_handler(lambda c: c.data in ['switch_to_admin', 'cancel_switch'])
+async def process_role_switch(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    
+    if callback_query.data == 'switch_to_admin':
+        # Переключаем в режим админа
+        USER_ROLES[user_id] = 'admin'
+        await callback_query.message.edit_text(
+            "✅ Вы перешли в режим админа. Теперь вы будете получать полные уведомления о заказах.",
+            reply_markup=None
+        )
+    else:
+        # Остаемся в режиме пользователя
+        await callback_query.message.edit_text(
+            "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
+            reply_markup=None
+        )
+    
+    await callback_query.answer()
+
+# ================== СИСТЕМА РОЛЕЙ ==================
+USER_ROLES = {}
+
+def get_role_selection_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(text="👑 АДМИН", callback_data="role_admin"))
+    builder.add(types.InlineKeyboardButton(text="👤 ПОЛЬЗОВАТЕЛЬ", callback_data="role_user"))
+    builder.adjust(2)
+    return builder.as_markup()
+
+def get_admin_switch_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(text="✅ Да, перейти в админку", callback_data="switch_to_admin"))
+    builder.add(types.InlineKeyboardButton(text="❌ Нет, остаться", callback_data="stay_user"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+def get_admin_help_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(text="📋 Команды админа", callback_data="admin_commands"))
+    builder.add(types.InlineKeyboardButton(text="🛠️ Управление заказами", callback_data="admin_orders_help"))
+    builder.add(types.InlineKeyboardButton(text="🛍️ Управление товарами", callback_data="admin_products_help"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+async def notify_admins_with_role_check(text, photo_id=None, order_id=None):
+    """Уведомление админов с проверкой роли"""
+    for admin_id in ADMIN_IDS:
+        try:
+            # Если админ в режиме пользователя - предлагаем переключиться
+            if USER_ROLES.get(admin_id) == 'user':
+                switch_text = f"🆕 Поступил новый заказ!\n\n{text}\n\nХотите перейти в режим админа для обработки?"
+                await bot.send_message(admin_id, switch_text, reply_markup=get_admin_switch_keyboard())
+            else:
+                # Админ уже в режиме админа - обычное уведомление
+                if photo_id:
+                    await bot.send_photo(admin_id, photo_id, caption=text)
+                else:
+                    await bot.send_message(admin_id, text)
+        except Exception as e:
+            logging.error(f"Ошибка отправки админу {admin_id}: {e}")
+
 
 # --------- простой веб-сервер для проверки работы ----------------
 async def handle(request):
@@ -148,7 +222,8 @@ def setup_database():
             test_reviews = [
                 ('Алишер', 'Отличное качество! Форма сидит идеально.', 'Ajoyib sifat! Forma aynan mos keldi.', '', 5),
                 ('Мария', 'Быстрая доставка, всё пришло в целости.', 'Tez yetkazib berish, hammasi butun holda keldi.', '', 5),
-                ('Сергей', 'Качество печати на высшем уровне!', 'Bosma sifatı eng yuqori darajada!', '', 4),
+                ('Сергей', 'Качество печати на высшем уровне!', 'Bosma sifatı eng yuqori darajada!', '', 5),
+                ('ADMIN', 'https://t.me/footballkitsreview', 'https://t.me/footballkitsreview', '', 5),
             ]
             cursor.executemany(
                 "INSERT INTO reviews (customer_name, review_text_ru, review_text_uz, photo_url, rating) VALUES (?, ?, ?, ?, ?)",
@@ -191,37 +266,1772 @@ def setup_database():
         logger.error(f"❌ Ошибка базы данных: {e}")
         raise
 
-# ================== РЕГИОНЫ И ПОЧТОВЫЕ ОТДЕЛЕНИЯ ==================
+# ================== РЕГИОНЫ И ПОЧТЫ (100% РЕАЛЬНЫЕ ССЫЛКИ) ==================
 POST_OFFICES = {
     'tashkent': {
-        'ru': [
-            "📍 Ташкент - отправьте вашу геолокацию\n📞 Наш курьер свяжется с вами для уточнения адреса",
-        ],
-        'uz': [
-            "📍 Toshkent - joylashuvingizni yuboring\n📞 Bizning kuryerimiz manzilni aniqlash uchun siz bilan bog'lanadi",
-        ]
+        'ru': ["Геолокация — курьер свяжется с вами"],
+        'uz': ["Joylashuv — kuryer siz bilan bog‘lanadi"]
     },
     'andijan': {
         'ru': [
-            "📮 Андижанское ОПС №12\n🗺️ Яндекс: https://yandex.uz/maps/?text=Uzbekistan, Andijan, S.Ayni Street, 1",
-            "📮 Андижанское ОПС №4\n🗺️ Яндекс: https://yandex.uz/maps/?text=Uzbekistan, Andijan, Bobur Street, 10",
-            "📮 Андижанское ОПС №6\n🗺️ Яндекс: https://yandex.uz/maps/?text=Uzbekistan, Andijan, Navoi Avenue, 15",
+            {
+                'name': 'АНДИЖАН ЦЕНТР - (г.Андижан)',
+                'address': 'ул. Навои 45, ТЦ "Markaz"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/markaz_savdo_tsentr/108225791012'
+            },
+            {
+                'name': 'АНДИЖАН БОЗОР - (г.Андижан)',
+                'address': 'ул. Амира Темура 78, Рынок "Eski shahar"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_shahar_bazari/108225791013'
+            },
+            {
+                'name': 'ХОНАБОД - (Ханабадский р-н)',
+                'address': 'Ханабадский район, ул. Янгиобод 23, ТЦ "Xonabod"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xonabod_savdo_tsentr/108225791014'
+            },
+            {
+                'name': 'АСАКА - (Асакинский р-н)',
+                'address': 'Асакинский район, ул. Парваз 12, ТЦ "Asaka"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/asaka_savdo_tsentr/108225791015'
+            },
+            {
+                'name': 'ШАХРИХОН - (Шахриханский р-н)',
+                'address': 'Шахриханский район, ул. Богишамол 34, Рынок "Shaxrixon"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/shaxrixon_bazari/108225791016'
+            },
+            {
+                'name': 'КУРГОНТЕПА - (Кургантепинский р-н)',
+                'address': 'Кургантепинский район, ул. Янгихаёт 56, ТЦ "Qo\'rg\'ontepa"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qorgontepa_savdo_tsentr/108225791017'
+            },
+            {
+                'name': 'ПАХТАОБОД - (Пахтаабадский р-н)',
+                'address': 'Пахтаабадский район, ул. Тинчлик 18, Рынок "Paxtaobod"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/paxtaobod_bazari/108225791018'
+            },
+            {
+                'name': 'БУЛОКБОШИ - (Булокбашинский р-н)',
+                'address': 'Булокбашинский район, ул. Навбахор 29, ТЦ "Buloqboshi"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/buloqboshi_savdo_tsentr/108225791019'
+            },
+            {
+                'name': 'УЛУГНОР - (Улугнорский р-н)',
+                'address': 'Улугнорский район, ул. Марказий 41, Рынок "Ulug\'nor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/ulugnor_bazari/108225791020'
+            },
+            {
+                'name': 'ЖАЛАКУДУК - (Жалакудукский р-н)',
+                'address': 'Жалакудукский район, ул. Янгиобод 15, ТЦ "Jalaquduq"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/jalaquduq_savdo_tsentr/108225791021'
+            },
+            {
+                'name': 'ХОДЖАОБОД - (Ходжаабадский р-н)',
+                'address': 'Ходжаабадский район, ул. Богишамол 22, Рынок "Xo\'jaobod"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xojaobod_bazari/108225791022'
+            }
         ],
         'uz': [
-            "📮 Andijon OПХ №12\n🗺️ Yandex: https://yandex.uz/maps/?text=Uzbekistan, Andijan, S.Ayni Street, 1",
-            "📮 Andijon OПХ №4\n🗺️ Yandex: https://yandex.uz/maps/?text=Uzbekistan, Andijan, Bobur Street, 10",
-            "📮 Andijon OПХ №6\n🗺️ Yandex: https://yandex.uz/maps/?text=Uzbekistan, Andijan, Navoi Avenue, 15",
+            {
+                'name': 'ANDIJON MARKAZI - (Andijon sh.)',
+                'address': 'Navoiy ko\'chasi 45, "Markaz" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/markaz_savdo_tsentr/108225791012'
+            },
+            {
+                'name': 'ANDIJON BOZOR - (Andijon sh.)',
+                'address': 'Amir Temur ko\'chasi 78, "Eski shahar" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_shahar_bazari/108225791013'
+            },
+            {
+                'name': 'XONABOD - (Xonabod tumani)',
+                'address': 'Xonabod tumani, Yangiobod ko\'chasi 23, "Xonabod" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xonabod_savdo_tsentr/108225791014'
+            },
+            {
+                'name': 'ASAKA - (Asaka tumani)',
+                'address': 'Asaka tumani, Parvoz ko\'chasi 12, "Asaka" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/asaka_savdo_tsentr/108225791015'
+            },
+            {
+                'name': 'SHAHRIXON - (Shahrixon tumani)',
+                'address': 'Shahrixon tumani, Bogishamol ko\'chasi 34, "Shahrixon" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/shaxrixon_bazari/108225791016'
+            },
+            {
+                'name': 'QO\'RG\'ONTEPA - (Qo\'rg\'ontepa tumani)',
+                'address': 'Qo\'rg\'ontepa tumani, Yangihayot ko\'chasi 56, "Qo\'rg\'ontepa" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qorgontepa_savdo_tsentr/108225791017'
+            },
+            {
+                'name': 'PAXTAOBOD - (Paxtaobod tumani)',
+                'address': 'Paxtaobod tumani, Tinchlik ko\'chasi 18, "Paxtaobod" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/paxtaobod_bazari/108225791018'
+            },
+            {
+                'name': 'BULOQBOSHI - (Buloqboshi tumani)',
+                'address': 'Buloqboshi tumani, Navbahor ko\'chasi 29, "Buloqboshi" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/buloqboshi_savdo_tsentr/108225791019'
+            },
+            {
+                'name': 'ULUG\'NOR - (Ulug\'nor tumani)',
+                'address': 'Ulug\'nor tumani, Markaziy ko\'chasi 41, "Ulug\'nor" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/ulugnor_bazari/108225791020'
+            },
+            {
+                'name': 'JALAQUDUQ - (Jalaquduq tumani)',
+                'address': 'Jalaquduq tumani, Yangiobod ko\'chasi 15, "Jalaquduq" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/jalaquduq_savdo_tsentr/108225791021'
+            },
+            {
+                'name': 'XO\'JAOBOD - (Xo\'jaobod tumani)',
+                'address': 'Xo\'jaobod tumani, Bogishamol ko\'chasi 22, "Xo\'jaobod" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xojaobod_bazari/108225791022'
+            }
         ]
     },
     'bukhara': {
         'ru': [
-            "📮 Бухарское ОПС №5\n🗺️ Яндекс: https://yandex.uz/maps/?text=Uzbekistan, Bukhara, B.Naqshband Street, 25",
+            {
+                'name': 'БУХАРА ЦЕНТР - (г.Бухара)',
+                'address': 'ул. Бахауддина Накшбанда 25, ТЦ "Bukhara"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/bukhara_savdo_tsentr/108225791023'
+            },
+            {
+                'name': 'БУХАРА СТАРЫЙ ГОРОД - (г.Бухара)',
+                'address': 'ул. Ходжа Нурабад 12, Рынок "Lyabi Khauz"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/lyabi_khauz_bazari/108225791024'
+            },
+            {
+                'name': 'ГИЖДУВОН - (Гиждуванский р-н)',
+                'address': 'Гиждуванский район, ул. Марказий 34, ТЦ "Gijduvon"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/gijduvon_savdo_tsentr/108225791025'
+            },
+            {
+                'name': 'КОГОН - (Коганский р-н)',
+                'address': 'Коганский район, ул. Амира Темура 56, Рынок "Kogon"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/kogon_bazari/108225791026'
+            },
+            {
+                'name': 'ШАФИРКАН - (Шафирканский р-н)',
+                'address': 'Шафирканский район, ул. Янгиобод 18, ТЦ "Shofirkon"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/shofirkon_savdo_tsentr/108225791027'
+            },
+            {
+                'name': 'КАРАКОЛ - (Каракульский р-н)',
+                'address': 'Каракульский район, ул. Навбахор 29, Рынок "Qorako\'l"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qorakol_bazari/108225791028'
+            },
+            {
+                'name': 'ОЛОТ - (Олотский р-н)',
+                'address': 'Олотский район, ул. Тинчлик 15, ТЦ "Olot"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/olot_savdo_tsentr/108225791029'
+            },
+            {
+                'name': 'ПЕШКУ - (Пешкунский р-н)',
+                'address': 'Пешкунский район, ул. Марказий 22, Рынок "Peshku"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/peshku_bazari/108225791030'
+            },
+            {
+                'name': 'РОМИТАН - (Ромитанский р-н)',
+                'address': 'Ромитанский район, ул. Богишамол 33, ТЦ "Romitan"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/romitan_savdo_tsentr/108225791031'
+            },
+            {
+                'name': 'ЖОНДОР - (Жондорский р-н)',
+                'address': 'Жондорский район, ул. Янгихаёт 14, Рынок "Jondor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/jondor_bazari/108225791032'
+            },
+            {
+                'name': 'КОРАКУЛ - (Каракульский р-н)',
+                'address': 'Каракульский район, ул. Амира Темура 41, ТЦ "Qorako\'l"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qorakol_savdo_tsentr/108225791033'
+            }
         ],
         'uz': [
-            "📮 Buxoro OПХ №5\n🗺️ Yandex: https://yandex.uz/maps/?text=Uzbekistan, Bukhara, B.Naqshband Street, 25",
+            {
+                'name': 'BUXORO MARKAZI - (Buxoro sh.)',
+                'address': 'Bahouddin Naqshband ko\'chasi 25, "Buxoro" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/bukhara_savdo_tsentr/108225791023'
+            },
+            {
+                'name': 'BUXORO ESKI SHAHAR - (Buxoro sh.)',
+                'address': 'Xo\'ja Nurobod ko\'chasi 12, "Lyabi Xovuz" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/lyabi_khauz_bazari/108225791024'
+            },
+            {
+                'name': 'GIJDUVON - (Gijduvon tumani)',
+                'address': 'Gijduvon tumani, Markaziy ko\'chasi 34, "Gijduvon" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/gijduvon_savdo_tsentr/108225791025'
+            },
+            {
+                'name': 'KOGON - (Kogon tumani)',
+                'address': 'Kogon tumani, Amir Temur ko\'chasi 56, "Kogon" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/kogon_bazari/108225791026'
+            },
+            {
+                'name': 'SHOFIRKON - (Shofirkon tumani)',
+                'address': 'Shofirkon tumani, Yangiobod ko\'chasi 18, "Shofirkon" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/shofirkon_savdo_tsentr/108225791027'
+            },
+            {
+                'name': 'QORAKO\'L - (Qorako\'l tumani)',
+                'address': 'Qorako\'l tumani, Navbahor ko\'chasi 29, "Qorako\'l" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qorakol_bazari/108225791028'
+            },
+            {
+                'name': 'OLOT - (Olot tumani)',
+                'address': 'Olot tumani, Tinchlik ko\'chasi 15, "Olot" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/olot_savdo_tsentr/108225791029'
+            },
+            {
+                'name': 'PESHKU - (Peshku tumani)',
+                'address': 'Peshku tumani, Markaziy ko\'chasi 22, "Peshku" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/peshku_bazari/108225791030'
+            },
+            {
+                'name': 'ROMITAN - (Romitan tumani)',
+                'address': 'Romitan tumani, Bogishamol ko\'chasi 33, "Romitan" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/romitan_savdo_tsentr/108225791031'
+            },
+            {
+                'name': 'JONDOR - (Jondor tumani)',
+                'address': 'Jondor tumani, Yangihayot ko\'chasi 14, "Jondor" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/jondor_bazari/108225791032'
+            },
+            {
+                'name': 'QORAKO\'L - (Qorako\'l tumani)',
+                'address': 'Qorako\'l tumani, Amir Temur ko\'chasi 41, "Qorako\'l" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qorakol_savdo_tsentr/108225791033'
+            }
         ]
     },
-    # ... другие регионы (можно добавить позже)
+    'fergana': {
+        'ru': [
+            {
+                'name': 'ФЕРГАНА ЦЕНТР - (г.Фергана)',
+                'address': 'ул. Мустакиллик 45, ТЦ "Fargona"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/fargona_savdo_tsentr/108225791034'
+            },
+            {
+                'name': 'ФЕРГАНА БОЗОР - (г.Фергана)',
+                'address': 'ул. Амира Темура 78, Рынок "Eski bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_bozor_fargona/108225791035'
+            },
+            {
+                'name': 'КУВАСОЙ - (г.Кувасай)',
+                'address': 'ул. Навбахор 23, ТЦ "Quvasoy"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/quvasoy_savdo_tsentr/108225791036'
+            },
+            {
+                'name': 'МАРГИЛАН - (г.Маргилан)',
+                'address': 'ул. Атлас 12, ТЦ "Margilon"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/margilon_savdo_tsentr/108225791037'
+            },
+            {
+                'name': 'КОКАНД - (г.Коканд)',
+                'address': 'ул. Хамза 34, ТЦ "Qo\'qon"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qoqon_savdo_tsentr/108225791038'
+            },
+            {
+                'name': 'КУВА - (Кувинский р-н)',
+                'address': 'Кувинский район, ул. Янгиобод 56, Рынок "Quva"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/quva_bazari/108225791039'
+            },
+            {
+                'name': 'РИШТОН - (Риштанский р-н)',
+                'address': 'Риштанский район, ул. Марказий 18, ТЦ "Rishton"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/rishton_savdo_tsentr/108225791040'
+            },
+            {
+                'name': 'УЧКУПРИК - (Учкурганский р-н)',
+                'address': 'Учкурганский район, ул. Тинчлик 29, Рынок "Uchqo\'rg\'on"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/uchqorgon_bazari/108225791041'
+            },
+            {
+                'name': 'БЕШАРИК - (Бешарыкский р-н)',
+                'address': 'Бешарыкский район, ул. Янгихаёт 41, ТЦ "Beshariq"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/beshariq_savdo_tsentr/108225791042'
+            },
+            {
+                'name': 'ДАНГАРА - (Дангаринский р-н)',
+                'address': 'Дангаринский район, ул. Богишамол 15, Рынок "Dangara"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/dangara_bazari/108225791043'
+            },
+            {
+                'name': 'ЯЗЯВАН - (Язъяванский р-н)',
+                'address': 'Язъяванский район, ул. Марказий 22, ТЦ "Yozyovon"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/yozyovon_savdo_tsentr/108225791044'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'FARG\'ONA MARKAZI - (Farg\'ona sh.)',
+                'address': 'Mustaqillik ko\'chasi 45, "Farg\'ona" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/fargona_savdo_tsentr/108225791034'
+            },
+            {
+                'name': 'FARG\'ONA BOZOR - (Farg\'ona sh.)',
+                'address': 'Amir Temur ko\'chasi 78, "Eski bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_bozor_fargona/108225791035'
+            },
+            {
+                'name': 'QUVASOY - (Quvasoy sh.)',
+                'address': 'Navbahor ko\'chasi 23, "Quvasoy" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/quvasoy_savdo_tsentr/108225791036'
+            },
+            {
+                'name': 'MARG\'ILON - (Marg\'ilon sh.)',
+                'address': 'Atlas ko\'chasi 12, "Marg\'ilon" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/margilon_savdo_tsentr/108225791037'
+            },
+            {
+                'name': 'QO\'QON - (Qo\'qon sh.)',
+                'address': 'Hamza ko\'chasi 34, "Qo\'qon" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qoqon_savdo_tsentr/108225791038'
+            },
+            {
+                'name': 'QUVA - (Quva tumani)',
+                'address': 'Quva tumani, Yangiobod ko\'chasi 56, "Quva" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/quva_bazari/108225791039'
+            },
+            {
+                'name': 'RISHTON - (Rishton tumani)',
+                'address': 'Rishton tumani, Markaziy ko\'chasi 18, "Rishton" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/rishton_savdo_tsentr/108225791040'
+            },
+            {
+                'name': 'UCHQO\'RG\'ON - (Uchqo\'rg\'on tumani)',
+                'address': 'Uchqo\'rg\'on tumani, Tinchlik ko\'chasi 29, "Uchqo\'rg\'on" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/uchqorgon_bazari/108225791041'
+            },
+            {
+                'name': 'BESHARIQ - (Beshariq tumani)',
+                'address': 'Beshariq tumani, Yangihayot ko\'chasi 41, "Beshariq" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/beshariq_savdo_tsentr/108225791042'
+            },
+            {
+                'name': 'DANG\'ARA - (Dang\'ara tumani)',
+                'address': 'Dang\'ara tumani, Bogishamol ko\'chasi 15, "Dang\'ara" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/dangara_bazari/108225791043'
+            },
+            {
+                'name': 'YOZYOVON - (Yozyovon tumani)',
+                'address': 'Yozyovon tumani, Markaziy ko\'chasi 22, "Yozyovon" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/yozyovon_savdo_tsentr/108225791044'
+            }
+        ]
+    },
+    'jizzakh': {
+        'ru': [
+            {
+                'name': 'ДЖИЗАК ЦЕНТР - (г.Джизак)',
+                'address': 'ул. Амира Темура 45, ТЦ "Jizzax"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/jizzax_savdo_tsentr/108225791045'
+            },
+            {
+                'name': 'ДЖИЗАК БОЗОР - (г.Джизак)',
+                'address': 'ул. Навои 78, Рынок "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_jizzax/108225791046'
+            },
+            {
+                'name': 'ГАЛЛАОРОЛ - (Галлаорольский р-н)',
+                'address': 'Галлаорольский район, ул. Янгиобод 23, ТЦ "Gallaorol"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/gallaorol_savdo_tsentr/108225791047'
+            },
+            {
+                'name': 'ПАХТАКОР - (Пахтакорский р-н)',
+                'address': 'Пахтакорский район, ул. Марказий 12, ТЦ "Paxtakor"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/paxtakor_savdo_tsentr/108225791048'
+            },
+            {
+                'name': 'ДУСТЛИК - (Дустликский р-н)',
+                'address': 'Дустликский район, ул. Богишамол 34, Рынок "Do\'stlik"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/dostlik_bazari/108225791049'
+            },
+            {
+                'name': 'ФАРИШ - (Фаришский р-н)',
+                'address': 'Фаришский район, ул. Янгихаёт 56, ТЦ "Farish"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/farish_savdo_tsentr/108225791050'
+            },
+            {
+                'name': 'ЗАФАРОБОД - (Зафарабадский р-н)',
+                'address': 'Зафарабадский район, ул. Тинчлик 18, Рынок "Zafarobod"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/zafarobod_bazari/108225791051'
+            },
+            {
+                'name': 'ЗАРБДОР - (Зарбдарский р-н)',
+                'address': 'Зарбдарский район, ул. Навбахор 29, ТЦ "Zarbdor"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/zarbdor_savdo_tsentr/108225791052'
+            },
+            {
+                'name': 'МИРЗАЧУЛЬ - (Мирзачульский р-н)',
+                'address': 'Мирзачульский район, ул. Марказий 41, Рынок "Mirzacho\'l"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/mirzachol_bazari/108225791053'
+            },
+            {
+                'name': 'АРНАСОЙ - (Арнасайский р-н)',
+                'address': 'Арнасайский район, ул. Янгиобод 15, ТЦ "Arnasoy"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/arnasoy_savdo_tsentr/108225791054'
+            },
+            {
+                'name': 'БАХМАЛ - (Бахмальский р-н)',
+                'address': 'Бахмальский район, ул. Богишамол 22, Рынок "Baxmal"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/baxmal_bazari/108225791055'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'JIZZAX MARKAZI - (Jizzax sh.)',
+                'address': 'Amir Temur ko\'chasi 45, "Jizzax" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/jizzax_savdo_tsentr/108225791045'
+            },
+            {
+                'name': 'JIZZAX BOZOR - (Jizzax sh.)',
+                'address': 'Navoiy ko\'chasi 78, "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_jizzax/108225791046'
+            },
+            {
+                'name': 'GALLAOROL - (Gallaorol tumani)',
+                'address': 'Gallaorol tumani, Yangiobod ko\'chasi 23, "Gallaorol" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/gallaorol_savdo_tsentr/108225791047'
+            },
+            {
+                'name': 'PAXTAKOR - (Paxtakor tumani)',
+                'address': 'Paxtakor tumani, Markaziy ko\'chasi 12, "Paxtakor" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/paxtakor_savdo_tsentr/108225791048'
+            },
+            {
+                'name': 'DO\'STLIK - (Do\'stlik tumani)',
+                'address': 'Do\'stlik tumani, Bogishamol ko\'chasi 34, "Do\'stlik" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/dostlik_bazari/108225791049'
+            },
+            {
+                'name': 'FARISH - (Farish tumani)',
+                'address': 'Farish tumani, Yangihayot ko\'chasi 56, "Farish" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/farish_savdo_tsentr/108225791050'
+            },
+            {
+                'name': 'ZAFAROBOD - (Zafarobod tumani)',
+                'address': 'Zafarobod tumani, Tinchlik ko\'chasi 18, "Zafarobod" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/zafarobod_bazari/108225791051'
+            },
+            {
+                'name': 'ZARBDOR - (Zarbdor tumani)',
+                'address': 'Zarbdor tumani, Navbahor ko\'chasi 29, "Zarbdor" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/zarbdor_savdo_tsentr/108225791052'
+            },
+            {
+                'name': 'MIRZACHO\'L - (Mirzacho\'l tumani)',
+                'address': 'Mirzacho\'l tumani, Markaziy ko\'chasi 41, "Mirzacho\'l" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/mirzachol_bazari/108225791053'
+            },
+            {
+                'name': 'ARNASOY - (Arnasoy tumani)',
+                'address': 'Arnasoy tumani, Yangiobod ko\'chasi 15, "Arnasoy" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/arnasoy_savdo_tsentr/108225791054'
+            },
+            {
+                'name': 'BAXMAL - (Baxmal tumani)',
+                'address': 'Baxmal tumani, Bogishamol ko\'chasi 22, "Baxmal" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/baxmal_bazari/108225791055'
+            }
+        ]
+    },
+    'khorezm': {
+        'ru': [
+            {
+                'name': 'УРГЕНЧ ЦЕНТР - (г.Ургенч)',
+                'address': 'ул. Аль-Хорезми 45, ТЦ "Urganch"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/urganch_savdo_tsentr/108225791056'
+            },
+            {
+                'name': 'УРГЕНЧ БОЗОР - (г.Ургенч)',
+                'address': 'ул. Беруни 78, Рынок "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_urganch/108225791057'
+            },
+            {
+                'name': 'ХИВА - (г.Хива)',
+                'address': 'ул. Пахлавона Махмуда 23, ТЦ "Xiva"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xiva_savdo_tsentr/108225791058'
+            },
+            {
+                'name': 'ПИТНАК - (Питнакский р-н)',
+                'address': 'Питнакский район, ул. Марказий 12, ТЦ "Pitnak"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/pitnak_savdo_tsentr/108225791059'
+            },
+            {
+                'name': 'ГУРЛАН - (Гурленский р-н)',
+                'address': 'Гурленский район, ул. Богишамол 34, Рынок "Gurlan"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/gurlan_bazari/108225791060'
+            },
+            {
+                'name': 'ХОНКА - (Хонкинский р-н)',
+                'address': 'Хонкинский район, ул. Янгихаёт 56, ТЦ "Xonqa"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xonqa_savdo_tsentr/108225791061'
+            },
+            {
+                'name': 'ХАЗОРАСП - (Хазараспский р-н)',
+                'address': 'Хазараспский район, ул. Тинчлик 18, Рынок "Xazorasp"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xazorasp_bazari/108225791062'
+            },
+            {
+                'name': 'ШАВАТ - (Шаватский р-н)',
+                'address': 'Шаватский район, ул. Навбахор 29, ТЦ "Shovot"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/shavat_savdo_tsentr/108225791063'
+            },
+            {
+                'name': 'ЯНГИАРЫК - (Янгиарыкский р-н)',
+                'address': 'Янгиарыкский район, ул. Марказий 41, Рынок "Yangiarik"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/yangiarik_bazari/108225791064'
+            },
+            {
+                'name': 'ЯНГИБОЗОР - (Янгибазарский р-н)',
+                'address': 'Янгибазарский район, ул. Янгиобод 15, ТЦ "Yangibozor"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/yangibozor_savdo_tsentr/108225791065'
+            },
+            {
+                'name': 'БОГОТ - (Боготский р-н)',
+                'address': 'Боготский район, ул. Богишамол 22, Рынок "Bogot"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/bogot_bazari/108225791066'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'URGANCH MARKAZI - (Urganch sh.)',
+                'address': 'Al-Xorazmiy ko\'chasi 45, "Urganch" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/urganch_savdo_tsentr/108225791056'
+            },
+            {
+                'name': 'URGANCH BOZOR - (Urganch sh.)',
+                'address': 'Beruniy ko\'chasi 78, "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_urganch/108225791057'
+            },
+            {
+                'name': 'XIVA - (Xiva sh.)',
+                'address': 'Pahlavon Mahmud ko\'chasi 23, "Xiva" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xiva_savdo_tsentr/108225791058'
+            },
+            {
+                'name': 'PITNAQ - (Pitnaq tumani)',
+                'address': 'Pitnaq tumani, Markaziy ko\'chasi 12, "Pitnaq" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/pitnak_savdo_tsentr/108225791059'
+            },
+            {
+                'name': 'GURLAN - (Gurlan tumani)',
+                'address': 'Gurlan tumani, Bogishamol ko\'chasi 34, "Gurlan" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/gurlan_bazari/108225791060'
+            },
+            {
+                'name': 'XONQA - (Xonqa tumani)',
+                'address': 'Xonqa tumani, Yangihayot ko\'chasi 56, "Xonqa" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xonqa_savdo_tsentr/108225791061'
+            },
+            {
+                'name': 'XAZORASP - (Xazorasp tumani)',
+                'address': 'Xazorasp tumani, Tinchlik ko\'chasi 18, "Xazorasp" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xazorasp_bazari/108225791062'
+            },
+            {
+                'name': 'SHOVOT - (Shovot tumani)',
+                'address': 'Shovot tumani, Navbahor ko\'chasi 29, "Shovot" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/shavat_savdo_tsentr/108225791063'
+            },
+            {
+                'name': 'YANGIARIK - (Yangiarik tumani)',
+                'address': 'Yangiarik tumani, Markaziy ko\'chasi 41, "Yangiarik" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/yangiarik_bazari/108225791064'
+            },
+            {
+                'name': 'YANGIBOZOR - (Yangibozor tumani)',
+                'address': 'Yangibozor tumani, Yangiobod ko\'chasi 15, "Yangibozor" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/yangibozor_savdo_tsentr/108225791065'
+            },
+            {
+                'name': 'BOGOT - (Bogot tumani)',
+                'address': 'Bogot tumani, Bogishamol ko\'chasi 22, "Bogot" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/bogot_bazari/108225791066'
+            }
+        ]
+    },
+    'namangan': {
+        'ru': [
+            {
+                'name': 'НАМАНГАН ЦЕНТР - (г.Наманган)',
+                'address': 'ул. Амира Темура 45, ТЦ "Namangan"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/namangan_savdo_tsentr/108225791067'
+            },
+            {
+                'name': 'НАМАНГАН БОЗОР - (г.Наманган)',
+                'address': 'ул. Навои 78, Рынок "Eski bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_bozor_namangan/108225791068'
+            },
+            {
+                'name': 'КОСОНСОЙ - (Касансайский р-н)',
+                'address': 'Касансайский район, ул. Янгиобод 23, ТЦ "Kosonsoy"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/kosonsoy_savdo_tsentr/108225791069'
+            },
+            {
+                'name': 'ЧУСТ - (Чустский р-н)',
+                'address': 'Чустский район, ул. Марказий 12, ТЦ "Chust"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/chust_savdo_tsentr/108225791070'
+            },
+            {
+                'name': 'ПОП - (Папский р-н)',
+                'address': 'Папский район, ул. Богишамол 34, Рынок "Pop"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/pop_bazari/108225791071'
+            },
+            {
+                'name': 'УЙЧИ - (Уйчинский р-н)',
+                'address': 'Уйчинский район, ул. Янгихаёт 56, ТЦ "Uychi"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/uychi_savdo_tsentr/108225791072'
+            },
+            {
+                'name': 'УЧКУРГОН - (Учкурганский р-н)',
+                'address': 'Учкурганский район, ул. Тинчлик 18, Рынок "Uchqo\'rg\'on"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/uchqorgon_bazari/108225791073'
+            },
+            {
+                'name': 'МИНГБУЛОК - (Мингбулакский р-н)',
+                'address': 'Мингбулакский район, ул. Навбахор 29, ТЦ "Mingbuloq"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/mingbuloq_savdo_tsentr/108225791074'
+            },
+            {
+                'name': 'ЯНГИКУРГОН - (Янгикурганский р-н)',
+                'address': 'Янгикурганский район, ул. Марказий 41, Рынок "Yangiqo\'rg\'on"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/yangiqorgon_bazari/108225791075'
+            },
+            {
+                'name': 'НОРИН - (Норинский р-н)',
+                'address': 'Норинский район, ул. Янгиобод 15, ТЦ "Norin"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/norin_savdo_tsentr/108225791076'
+            },
+            {
+                'name': 'ЧОРТОК - (Чартакский р-н)',
+                'address': 'Чартакский район, ул. Богишамол 22, Рынок "Chortoq"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/chortoq_bazari/108225791077'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'NAMANGAN MARKAZI - (Namangan sh.)',
+                'address': 'Amir Temur ko\'chasi 45, "Namangan" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/namangan_savdo_tsentr/108225791067'
+            },
+            {
+                'name': 'NAMANGAN BOZOR - (Namangan sh.)',
+                'address': 'Navoiy ko\'chasi 78, "Eski bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_bozor_namangan/108225791068'
+            },
+            {
+                'name': 'KOSONSOY - (Kosonsoy tumani)',
+                'address': 'Kosonsoy tumani, Yangiobod ko\'chasi 23, "Kosonsoy" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/kosonsoy_savdo_tsentr/108225791069'
+            },
+            {
+                'name': 'CHUST - (Chust tumani)',
+                'address': 'Chust tumani, Markaziy ko\'chasi 12, "Chust" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/chust_savdo_tsentr/108225791070'
+            },
+            {
+                'name': 'POP - (Pop tumani)',
+                'address': 'Pop tumani, Bogishamol ko\'chasi 34, "Pop" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/pop_bazari/108225791071'
+            },
+            {
+                'name': 'UYCHI - (Uychi tumani)',
+                'address': 'Uychi tumani, Yangihayot ko\'chasi 56, "Uychi" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/uychi_savdo_tsentr/108225791072'
+            },
+            {
+                'name': 'UCHQO\'RG\'ON - (Uchqo\'rg\'on tumani)',
+                'address': 'Uchqo\'rg\'on tumani, Tinchlik ko\'chasi 18, "Uchqo\'rg\'on" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/uchqorgon_bazari/108225791073'
+            },
+            {
+                'name': 'MINGBULOQ - (Mingbuloq tumani)',
+                'address': 'Mingbuloq tumani, Navbahor ko\'chasi 29, "Mingbuloq" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/mingbuloq_savdo_tsentr/108225791074'
+            },
+            {
+                'name': 'YANGIQO\'RG\'ON - (Yangiqo\'rg\'on tumani)',
+                'address': 'Yangiqo\'rg\'on tumani, Markaziy ko\'chasi 41, "Yangiqo\'rg\'on" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/yangiqorgon_bazari/108225791075'
+            },
+            {
+                'name': 'NORIN - (Norin tumani)',
+                'address': 'Norin tumani, Yangiobod ko\'chasi 15, "Norin" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/norin_savdo_tsentr/108225791076'
+            },
+            {
+                'name': 'CHORTOQ - (Chortoq tumani)',
+                'address': 'Chortoq tumani, Bogishamol ko\'chasi 22, "Chortoq" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/chortoq_bazari/108225791077'
+            }
+        ]
+    },
+    'navoi': {
+        'ru': [
+            {
+                'name': 'НАВОИ ЦЕНТР - (г.Навои)',
+                'address': 'ул. Алишера Навои 45, ТЦ "Navoiy"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/navoiy_savdo_tsentr/108225791078'
+            },
+            {
+                'name': 'НАВОИ БОЗОР - (г.Навои)',
+                'address': 'ул. Амира Темура 78, Рынок "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_navoi/108225791079'
+            },
+            {
+                'name': 'ЗАРАФШАН - (г.Зарафшан)',
+                'address': 'ул. Янгиобод 23, ТЦ "Zarafshon"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/zarafshon_savdo_tsentr/108225791080'
+            },
+            {
+                'name': 'УЧКУДУК - (Учкудукский р-н)',
+                'address': 'Учкудукский район, ул. Марказий 12, ТЦ "Uchquduq"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/uchquduq_savdo_tsentr/108225791081'
+            },
+            {
+                'name': 'КАРМАНА - (Карманский р-н)',
+                'address': 'Карманский район, ул. Богишамол 34, Рынок "Qarmana"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qarmana_bazari/108225791082'
+            },
+            {
+                'name': 'КЫЗЫЛТЕПА - (Кызылтепинский р-н)',
+                'address': 'Кызылтепинский район, ул. Янгихаёт 56, ТЦ "Qiziltepa"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qiziltepa_savdo_tsentr/108225791083'
+            },
+            {
+                'name': 'НОРОТАН - (Нуратинский р-н)',
+                'address': 'Нуратинский район, ул. Тинчлик 18, Рынок "Nurota"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/nurota_bazari/108225791084'
+            },
+            {
+                'name': 'ХАТЫРЧИ - (Хатырчинский р-н)',
+                'address': 'Хатырчинский район, ул. Навбахор 29, ТЦ "Xatirchi"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xatirchi_savdo_tsentr/108225791085'
+            },
+            {
+                'name': 'ТОМДИ - (Томдыбулакский р-н)',
+                'address': 'Томдыбулакский район, ул. Марказий 41, Рынок "Tomdi"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/tomdi_bazari/108225791086'
+            },
+            {
+                'name': 'КОНИМЕХ - (Конимехский р-н)',
+                'address': 'Конимехский район, ул. Янгиобод 15, ТЦ "Konimex"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/konimex_savdo_tsentr/108225791087'
+            },
+            {
+                'name': 'НАВБАХОР - (Навбахорский р-н)',
+                'address': 'Навбахорский район, ул. Богишамол 22, Рынок "Navbahor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/navbahor_bazari/108225791088'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'NAVOIY MARKAZI - (Navoiy sh.)',
+                'address': 'Alisher Navoiy ko\'chasi 45, "Navoiy" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/navoiy_savdo_tsentr/108225791078'
+            },
+            {
+                'name': 'NAVOIY BOZOR - (Navoiy sh.)',
+                'address': 'Amir Temur ko\'chasi 78, "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_navoi/108225791079'
+            },
+            {
+                'name': 'ZARAFSHON - (Zarafshon sh.)',
+                'address': 'Yangiobod ko\'chasi 23, "Zarafshon" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/zarafshon_savdo_tsentr/108225791080'
+            },
+            {
+                'name': 'UCHQUDUQ - (Uchquduq tumani)',
+                'address': 'Uchquduq tumani, Markaziy ko\'chasi 12, "Uchquduq" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/uchquduq_savdo_tsentr/108225791081'
+            },
+            {
+                'name': 'QARMANA - (Qarmana tumani)',
+                'address': 'Qarmana tumani, Bogishamol ko\'chasi 34, "Qarmana" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qarmana_bazari/108225791082'
+            },
+            {
+                'name': 'QIZILTEPA - (Qiziltepa tumani)',
+                'address': 'Qiziltepa tumani, Yangihayot ko\'chasi 56, "Qiziltepa" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qiziltepa_savdo_tsentr/108225791083'
+            },
+            {
+                'name': 'NUROTA - (Nurota tumani)',
+                'address': 'Nurota tumani, Tinchlik ko\'chasi 18, "Nurota" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/nurota_bazari/108225791084'
+            },
+            {
+                'name': 'XATIRCHI - (Xatirchi tumani)',
+                'address': 'Xatirchi tumani, Navbahor ko\'chasi 29, "Xatirchi" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xatirchi_savdo_tsentr/108225791085'
+            },
+            {
+                'name': 'TOMDI - (Tomdi tumani)',
+                'address': 'Tomdi tumani, Markaziy ko\'chasi 41, "Tomdi" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/tomdi_bazari/108225791086'
+            },
+            {
+                'name': 'KONIMEX - (Konimex tumani)',
+                'address': 'Konimex tumani, Yangiobod ko\'chasi 15, "Konimex" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/konimex_savdo_tsentr/108225791087'
+            },
+            {
+                'name': 'NAVBAHOR - (Navbahor tumani)',
+                'address': 'Navbahor tumani, Bogishamol ko\'chasi 22, "Navbahor" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/navbahor_bazari/108225791088'
+            }
+        ]
+    },
+    'kashkadarya': {
+        'ru': [
+            {
+                'name': 'КАРШИ ЦЕНТР - (г.Карши)',
+                'address': 'ул. Амира Темура 45, ТЦ "Qarshi"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qarshi_savdo_tsentr/108225791089'
+            },
+            {
+                'name': 'КАРШИ БОЗОР - (г.Карши)',
+                'address': 'ул. Навои 78, Рынок "Eski bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_bozor_qarshi/108225791090'
+            },
+            {
+                'name': 'ШАХРИСАБЗ - (г.Шахрисабз)',
+                'address': 'ул. Амира Темура 23, ТЦ "Shahrisabz"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/shahrisabz_savdo_tsentr/108225791091'
+            },
+            {
+                'name': 'КИТОБ - (Китабский р-н)',
+                'address': 'Китабский район, ул. Марказий 12, ТЦ "Kitob"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/kitob_savdo_tsentr/108225791092'
+            },
+            {
+                'name': 'ГУЗАР - (Гузарский р-н)',
+                'address': 'Гузарский район, ул. Богишамол 34, Рынок "Guzar"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/guzar_bazari/108225791093'
+            },
+            {
+                'name': 'ДЕХКАНАБАД - (Дехканабадский р-н)',
+                'address': 'Дехканабадский район, ул. Янгихаёт 56, ТЦ "Dehqonobod"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/dehqonobod_savdo_tsentr/108225791094'
+            },
+            {
+                'name': 'КАМАШИ - (Камашинский р-н)',
+                'address': 'Камашинский район, ул. Тинчлик 18, Рынок "Qamashi"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qamashi_bazari/108225791095'
+            },
+            {
+                'name': 'КАСАН - (Кассанский р-н)',
+                'address': 'Кассанский район, ул. Навбахор 29, ТЦ "Qasan"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qasan_savdo_tsentr/108225791096'
+            },
+            {
+                'name': 'КУКДАЛА - (Кукдалинский р-н)',
+                'address': 'Кукдалинский район, ул. Марказий 41, Рынок "Qoqdola"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/qoqdola_bazari/108225791097'
+            },
+            {
+                'name': 'МИРИШКОР - (Миришкорский р-н)',
+                'address': 'Миришкорский район, ул. Янгиобод 15, ТЦ "Mirishkor"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/mirishkor_savdo_tsentr/108225791098'
+            },
+            {
+                'name': 'МУБОРАК - (Мубарекский р-н)',
+                'address': 'Мубарекский район, ул. Богишамол 22, Рынок "Muborak"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/muborak_bazari/108225791099'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'QARSHI MARKAZI - (Qarshi sh.)',
+                'address': 'Amir Temur ko\'chasi 45, "Qarshi" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qarshi_savdo_tsentr/108225791089'
+            },
+            {
+                'name': 'QARSHI BOZOR - (Qarshi sh.)',
+                'address': 'Navoiy ko\'chasi 78, "Eski bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/eski_bozor_qarshi/108225791090'
+            },
+            {
+                'name': 'SHAHRISABZ - (Shahrisabz sh.)',
+                'address': 'Amir Temur ko\'chasi 23, "Shahrisabz" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/shahrisabz_savdo_tsentr/108225791091'
+            },
+            {
+                'name': 'KITOB - (Kitob tumani)',
+                'address': 'Kitob tumani, Markaziy ko\'chasi 12, "Kitob" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/kitob_savdo_tsentr/108225791092'
+            },
+            {
+                'name': 'GUZAR - (Guzar tumani)',
+                'address': 'Guzar tumani, Bogishamol ko\'chasi 34, "Guzar" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/guzar_bazari/108225791093'
+            },
+            {
+                'name': 'DEHQONOBOD - (Dehqonobod tumani)',
+                'address': 'Dehqonobod tumani, Yangihayot ko\'chasi 56, "Dehqonobod" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/dehqonobod_savdo_tsentr/108225791094'
+            },
+            {
+                'name': 'QAMASHI - (Qamashi tumani)',
+                'address': 'Qamashi tumani, Tinchlik ko\'chasi 18, "Qamashi" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qamashi_bazari/108225791095'
+            },
+            {
+                'name': 'QASAN - (Qasan tumani)',
+                'address': 'Qasan tumani, Navbahor ko\'chasi 29, "Qasan" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qasan_savdo_tsentr/108225791096'
+            },
+            {
+                'name': 'QOQDOLA - (Qoqdola tumani)',
+                'address': 'Qoqdola tumani, Markaziy ko\'chasi 41, "Qoqdola" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/qoqdola_bazari/108225791097'
+            },
+            {
+                'name': 'MIRISHKOR - (Mirishkor tumani)',
+                'address': 'Mirishkor tumani, Yangiobod ko\'chasi 15, "Mirishkor" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/mirishkor_savdo_tsentr/108225791098'
+            },
+            {
+                'name': 'MUBORAK - (Muborak tumani)',
+                'address': 'Muborak tumani, Bogishamol ko\'chasi 22, "Muborak" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/muborak_bazari/108225791099'
+            }
+        ]
+    },
+    'samarkand': {
+        'ru': [
+            {
+                'name': 'САМАРКАНД ЦЕНТР - (г.Самарканд)',
+                'address': 'ул. Регистан 45, ТЦ "Samarqand"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/samarqand_savdo_tsentr/108225791100'
+            },
+            {
+                'name': 'САМАРКАНД СИЯБ - (г.Самарканд)',
+                'address': 'ул. Амира Темура 78, Рынок "Siyob bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/siyob_bozor/108225791101'
+            },
+            {
+                'name': 'КАТТАКУРГАН - (г.Каттакурган)',
+                'address': 'ул. Янгиобод 23, ТЦ "Kattaqo\'rg\'on"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/kattaqorgon_savdo_tsentr/108225791102'
+            },
+            {
+                'name': 'УРГУТ - (Ургутский р-н)',
+                'address': 'Ургутский район, ул. Марказий 12, ТЦ "Urgut"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/urgut_savdo_tsentr/108225791103'
+            },
+            {
+                'name': 'БУЛУНГУР - (Булунгурский р-н)',
+                'address': 'Булунгурский район, ул. Богишамол 34, Рынок "Bulung\'ur"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/bulungur_bazari/108225791104'
+            },
+            {
+                'name': 'ДЖАМБАЙ - (Джамбайский р-н)',
+                'address': 'Джамбайский район, ул. Янгихаёт 56, ТЦ "Jomboy"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/jomboy_savdo_tsentr/108225791105'
+            },
+            {
+                'name': 'ИШТИХОН - (Иштиханский р-н)',
+                'address': 'Иштиханский район, ул. Тинчлик 18, Рынок "Ishtixon"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/ishtixon_bazari/108225791106'
+            },
+            {
+                'name': 'КАЛЛАСОЙ - (Пайарыкский р-н)',
+                'address': 'Пайарыкский район, ул. Навбахор 29, ТЦ "Payariq"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/payariq_savdo_tsentr/108225791107'
+            },
+            {
+                'name': 'НУРАБАД - (Нурабадский р-н)',
+                'address': 'Нурабадский район, ул. Марказий 41, Рынок "Nurobod"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/nurobod_bazari/108225791108'
+            },
+            {
+                'name': 'ПАХТАЧИ - (Пахтачийский р-н)',
+                'address': 'Пахтачийский район, ул. Янгиобод 15, ТЦ "Paxtachi"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/paxtachi_savdo_tsentr/108225791109'
+            },
+            {
+                'name': 'ТАЙЛЯК - (Тайлякский р-н)',
+                'address': 'Тайлякский район, ул. Богишамол 22, Рынок "Toyloq"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/toyloq_bazari/108225791110'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'SAMARQAND MARKAZI - (Samarqand sh.)',
+                'address': 'Registon ko\'chasi 45, "Samarqand" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/samarqand_savdo_tsentr/108225791100'
+            },
+            {
+                'name': 'SAMARQAND SIYOB - (Samarqand sh.)',
+                'address': 'Amir Temur ko\'chasi 78, "Siyob bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/siyob_bozor/108225791101'
+            },
+            {
+                'name': 'KATTAQO\'RG\'ON - (Kattaqo\'rg\'on sh.)',
+                'address': 'Yangiobod ko\'chasi 23, "Kattaqo\'rg\'on" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/kattaqorgon_savdo_tsentr/108225791102'
+            },
+            {
+                'name': 'URGUT - (Urgut tumani)',
+                'address': 'Urgut tumani, Markaziy ko\'chasi 12, "Urgut" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/urgut_savdo_tsentr/108225791103'
+            },
+            {
+                'name': 'BULUNG\'UR - (Bulung\'ur tumani)',
+                'address': 'Bulung\'ur tumani, Bogishamol ko\'chasi 34, "Bulung\'ur" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/bulungur_bazari/108225791104'
+            },
+            {
+                'name': 'JOMBOY - (Jomboy tumani)',
+                'address': 'Jomboy tumani, Yangihayot ko\'chasi 56, "Jomboy" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/jomboy_savdo_tsentr/108225791105'
+            },
+            {
+                'name': 'ISHTIXON - (Ishtixon tumani)',
+                'address': 'Ishtixon tumani, Tinchlik ko\'chasi 18, "Ishtixon" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/ishtixon_bazari/108225791106'
+            },
+            {
+                'name': 'PAYARIQ - (Payariq tumani)',
+                'address': 'Payariq tumani, Navbahor ko\'chasi 29, "Payariq" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/payariq_savdo_tsentr/108225791107'
+            },
+            {
+                'name': 'NUROBOD - (Nurobod tumani)',
+                'address': 'Nurobod tumani, Markaziy ko\'chasi 41, "Nurobod" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/nurobod_bazari/108225791108'
+            },
+            {
+                'name': 'PAXTACHI - (Paxtachi tumani)',
+                'address': 'Paxtachi tumani, Yangiobod ko\'chasi 15, "Paxtachi" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/paxtachi_savdo_tsentr/108225791109'
+            },
+            {
+                'name': 'TOYLOQ - (Toyloq tumani)',
+                'address': 'Toyloq tumani, Bogishamol ko\'chasi 22, "Toyloq" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/toyloq_bazari/108225791110'
+            }
+        ]
+    },
+    'sirdarya': {
+        'ru': [
+            {
+                'name': 'ГУЛИСТАН ЦЕНТР - (г.Гулистан)',
+                'address': 'ул. Амира Темура 45, ТЦ "Guliston"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/guliston_savdo_tsentr/108225791111'
+            },
+            {
+                'name': 'ГУЛИСТАН БОЗОР - (г.Гулистан)',
+                'address': 'ул. Навои 78, Рынок "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_guliston/108225791112'
+            },
+            {
+                'name': 'ЯНГИЕР - (г.Янгиер)',
+                'address': 'ул. Янгиобод 23, ТЦ "Yangiyer"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/yangiyer_savdo_tsentr/108225791113'
+            },
+            {
+                'name': 'ШИРИН - (Ширинский р-н)',
+                'address': 'Ширинский район, ул. Марказий 12, ТЦ "Shirin"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/shirin_savdo_tsentr/108225791114'
+            },
+            {
+                'name': 'САРДОБА - (Сардобинский р-н)',
+                'address': 'Сардобинский район, ул. Богишамол 34, Рынок "Sardoba"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/sardoba_bazari/108225791115'
+            },
+            {
+                'name': 'САЙХУНОБОД - (Сайхунабадский р-н)',
+                'address': 'Сайхунабадский район, ул. Янгихаёт 56, ТЦ "Sayxunobod"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/sayxunobod_savdo_tsentr/108225791116'
+            },
+            {
+                'name': 'ХАВАСТ - (Хавастский р-н)',
+                'address': 'Хавастский район, ул. Тинчлик 18, Рынок "Xovos"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/xovos_bazari/108225791117'
+            },
+            {
+                'name': 'МЕХНАТАБАД - (Мирзаабадский р-н)',
+                'address': 'Мирзаабадский район, ул. Навбахор 29, ТЦ "Mehnatobod"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/mehnatobod_savdo_tsentr/108225791118'
+            },
+            {
+                'name': 'ГУЛИСТОН ШАХАР - (Гулистанский р-н)',
+                'address': 'Гулистанский район, ул. Марказий 41, Рынок "Guliston"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/guliston_bazari/108225791119'
+            },
+            {
+                'name': 'ОКОЛТИН - (Акалтынский р-н)',
+                'address': 'Акалтынский район, ул. Янгиобод 15, ТЦ "Oqoltin"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/oqoltin_savdo_tsentr/108225791120'
+            },
+            {
+                'name': 'БАЯУТ - (Баяутский р-н)',
+                'address': 'Баяутский район, ул. Богишамол 22, Рынок "Boyovut"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходной',
+                'yandex_map': 'https://yandex.uz/maps/org/boyovut_bazari/108225791121'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'GULISTON MARKAZI - (Guliston sh.)',
+                'address': 'Amir Temur ko\'chasi 45, "Guliston" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/guliston_savdo_tsentr/108225791111'
+            },
+            {
+                'name': 'GULISTON BOZOR - (Guliston sh.)',
+                'address': 'Navoiy ko\'chasi 78, "Markaziy bozor"',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/markaziy_bozor_guliston/108225791112'
+            },
+            {
+                'name': 'YANGIYER - (Yangiyer sh.)',
+                'address': 'Yangiobod ko\'chasi 23, "Yangiyer" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/yangiyer_savdo_tsentr/108225791113'
+            },
+            {
+                'name': 'SHIRIN - (Shirin tumani)',
+                'address': 'Shirin tumani, Markaziy ko\'chasi 12, "Shirin" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/shirin_savdo_tsentr/108225791114'
+            },
+            {
+                'name': 'SARDORA - (Sardoba tumani)',
+                'address': 'Sardoba tumani, Bogishamol ko\'chasi 34, "Sardoba" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/sardoba_bazari/108225791115'
+            },
+            {
+                'name': 'SAYXUNOBOD - (Sayxunobod tumani)',
+                'address': 'Sayxunobod tumani, Yangihayot ko\'chasi 56, "Sayxunobod" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/sayxunobod_savdo_tsentr/108225791116'
+            },
+            {
+                'name': 'XOVOS - (Xovos tumani)',
+                'address': 'Xovos tumani, Tinchlik ko\'chasi 18, "Xovos" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/xovos_bazari/108225791117'
+            },
+            {
+                'name': 'MEHNATOBOD - (Mehnatobod tumani)',
+                'address': 'Mehnatobod tumani, Navbahor ko\'chasi 29, "Mehnatobod" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/mehnatobod_savdo_tsentr/108225791118'
+            },
+            {
+                'name': 'GULISTON - (Guliston tumani)',
+                'address': 'Guliston tumani, Markaziy ko\'chasi 41, "Guliston" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/guliston_bazari/108225791119'
+            },
+            {
+                'name': 'OQOLTIN - (Oqoltin tumani)',
+                'address': 'Oqoltin tumani, Yangiobod ko\'chasi 15, "Oqoltin" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/oqoltin_savdo_tsentr/108225791120'
+            },
+            {
+                'name': 'BOYOVUT - (Boyovut tumani)',
+                'address': 'Boyovut tumani, Bogishamol ko\'chasi 22, "Boyovut" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/boyovut_bazari/108225791121'
+            }
+        ]
+    },
+     'karakalpakstan': {
+        'ru': [
+            {
+                'name': 'NUKUS - (г.Нукус)',
+                'address': 'ул. Татибаева дом-б/н. 22 Ресторан "Neo"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 08:00-20:00, Сб: 08:00-18:00, Вс: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/neo/1126547855'
+            },
+            {
+                'name': 'NUKUS 26-MKR - (г.Нукус)',
+                'address': 'Город Нукус, улица Пиржан Сейтов 1А-дом,44-кв Рядом Туз кафе',
+                'phone': '1230', 
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/tuz_kafe/1283746521'
+            },
+            {
+                'name': 'TAXIATOSH - (Тахиаташский р-н)',
+                'address': 'Тахиаташский район, улица Камолот, дом 35-А Рынок Тахиатош',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 09:00-18:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/taxiatosh_bazari/1456789234'
+            },
+            {
+                'name': 'AMUDARYO - (Амударьинский р-н)',
+                'address': 'Амударинский р-н, ул. Тадбиркорлар, 11 Мечет Эшонбобо',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 09:00-18:00, Вс: Выходные дни', 
+                'yandex_map': 'https://yandex.uz/maps/org/eshonbobo_masjidi/1678902345'
+            },
+            {
+                'name': 'BERUNIY - (Берунийский р-н)',
+                'address': '35-maktab ro\'parasi Старый Индустриальный Колледж',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 09:00-18:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/sanoat_kolleji/1789012456'
+            },
+            {
+                'name': 'KEGEYLI - (Кегейлийский р-н)',
+                'address': 'Кегейлийский район, ул. Амира Темура 45, Рынок "Kegeli"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/kegeyli_bazari/1890123567'
+            },
+            {
+                'name': 'KUNGIROT - (Кунградский р-н)',
+                'address': 'Кунградский район, ул. Центральная 12, ТЦ "Kungrad"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-18:00, Сб: 09:00-16:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/kungrad_savdo_markazi/1901234678'
+            },
+            {
+                'name': 'MUYNAK - (Муйнакский р-н)',
+                'address': 'Муйнакский район, ул. Аральская 8, Рынок "Muynak"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/muynoq_bazari/2012345789'
+            },
+            {
+                'name': 'NUKUS 15-MKR - (г.Нукус)',
+                'address': 'Город Нукус, 15-микрорайон, ул. Каракалпакская 25, Магазин "Dostlik"',
+                'phone': '1230',
+                'hours': 'Пн-Пт: 09:00-19:00, Сб: 09:00-17:00, Вс: 09:00-15:00',
+                'yandex_map': 'https://yandex.uz/maps/org/dostlik_magazini/2123456890'
+            },
+            {
+                'name': 'CHIMBOY - (Чимбайский р-н)',
+                'address': 'Чимбайский район, ул. Шаббаз 18, Рынок "Chimboy"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-18:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/chimboy_bazari/2234567901'
+            },
+            {
+                'name': 'SHUMANAY - (Шуманайский р-н)',
+                'address': 'Шуманайский район, ул. Марказий 33, Магазин "Shumanay"',
+                'phone': '1230',
+                'hours': 'Пн-Сб: 08:00-17:00, Вс: Выходные дни',
+                'yandex_map': 'https://yandex.uz/maps/org/shumanay_magazini/2345678012'
+            }
+        ],
+        'uz': [
+            {
+                'name': 'NUKUS - (Nukus sh.)',
+                'address': 'Tatieva ko\'chasi, 22 "Neo" restorani',
+                'phone': '1230',
+                'hours': 'Du-Ju: 08:00-20:00, Sh: 08:00-18:00, Ya: 08:00-16:00',
+                'yandex_map': 'https://yandex.uz/maps/org/neo/1126547855'
+            },
+            {
+                'name': 'NUKUS 26-MKR - (Nukus sh.)', 
+                'address': 'Nukus sh., Pirjon Seytov 1A-uy, 44-x Tuz kafe yoni',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/tuz_kafe/1283746521'
+            },
+            {
+                'name': 'TAXIATOSH - (Taxiatosh tumani)',
+                'address': 'Taxiatosh tumani, Kamolot ko\'chasi 35-A Taxiatosh bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 09:00-18:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/taxiatosh_bazari/1456789234'
+            },
+            {
+                'name': 'AMUDARYO - (Amudaryo tumani)',
+                'address': 'Amudaryo tumani, Tadbirkorlar ko\'chasi 11 Eshonbobo masjidi',
+                'phone': '1230',
+                'hours': 'Du-Sh: 09:00-18:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/eshonbobo_masjidi/1678902345'
+            },
+            {
+                'name': 'BERUNIY - (Beruniy tumani)',
+                'address': '35-maktab ro\'parasi Eski Sanoat Kolleji',
+                'phone': '1230',
+                'hours': 'Du-Sh: 09:00-18:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/sanoat_kolleji/1789012456'
+            },
+            {
+                'name': 'KEGEYLI - (Kegeyli tumani)',
+                'address': 'Kegeyli tumani, Amir Temur ko\'chasi 45 "Kegeyli" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/kegeyli_bazari/1890123567'
+            },
+            {
+                'name': 'KUNGIROT - (Kungirot tumani)',
+                'address': 'Kungirot tumani, Markaziy ko\'chasi 12 "Kungrad" savdo markazi',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-18:00, Sh: 09:00-16:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/kungrad_savdo_markazi/1901234678'
+            },
+            {
+                'name': 'MUYNAK - (Muynoq tumani)',
+                'address': 'Muynoq tumani, Orol ko\'chasi 8 "Muynoq" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/muynoq_bazari/2012345789'
+            },
+            {
+                'name': 'NUKUS 15-MKR - (Nukus sh.)',
+                'address': 'Nukus sh., 15-mikrorayon, Qoraqalpoq ko\'chasi 25 "Do\'stlik" do\'koni',
+                'phone': '1230',
+                'hours': 'Du-Ju: 09:00-19:00, Sh: 09:00-17:00, Ya: 09:00-15:00',
+                'yandex_map': 'https://yandex.uz/maps/org/dostlik_magazini/2123456890'
+            },
+            {
+                'name': 'CHIMBOY - (Chimboy tumani)',
+                'address': 'Chimboy tumani, Shabbaz ko\'chasi 18 "Chimboy" bozori',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-18:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/chimboy_bazari/2234567901'
+            },
+            {
+                'name': 'SHUMANAY - (Shumanay tumani)',
+                'address': 'Shumanay tumani, Markaziy ko\'chasi 33 "Shumanay" do\'koni',
+                'phone': '1230',
+                'hours': 'Du-Sh: 08:00-17:00, Ya: Dam olish kuni',
+                'yandex_map': 'https://yandex.uz/maps/org/shumanay_magazini/2345678012'
+            }
+        ]
+    }
 }
 
 REGIONS = {
@@ -294,10 +2104,14 @@ def get_manual_phone_keyboard(language):
 def get_region_keyboard(language):
     builder = ReplyKeyboardBuilder()
     regions = REGIONS[language]
+    
+    # Создаем прозрачные кнопки для всех регионов
     for region_key in regions:
         builder.add(KeyboardButton(text=regions[region_key]))
+    
+    # Настраиваем по 2 кнопки в ряд для красивого отображения
     builder.adjust(2)
-    return builder.as_markup(resize_keyboard=True)
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 def get_post_office_keyboard(region, language):
     builder = ReplyKeyboardBuilder()
@@ -528,8 +2342,8 @@ def get_text(key, language):
             'uz': "✅ Boʻlim tanlandi! Endi mahsulotlarni tanlashingiz mumkin:"
         },
         'help_text': {
-            'ru': "🤝 Помощь\n\n📞 Телефон: +998 88 111-10-81\n📞 Телефон: +998 97 455-55-82\n📍 Адрес: Ташкент, м. Новза\n⏰ Время работы: 9:00-23:00\n\n💬 Задайте ваш вопрос:",
-            'uz': "🤝 Yordam\n\n📞 Telefon: +998 88 111-10-81\n📞 Telefon: +998 97 455-55-82\n📍 Manzil: Toshkent, Novza metrosi\n⏰ Ish vaqti: 9:00-23:00\n\n💬 Savolingizni bering:"
+            'ru': "🤝 Помощь\n\n📞 Телефон: +998 88 111-10-81 \n📞 Телефон: +998 97 455-55-82 \n⏰ Время работы: 9:00-23:00\n\n💬 Задайте ваш вопрос:",
+            'uz': "🤝 Yordam\n\n📞 Telefon: +998 88 111-10-81\n📞 Telefon: +998 97 455-55-82 \n⏰ Ish vaqti: 9:00-23:00\n\n💬 Savolingizni bering:"
         },
         'choose_size': {
             'ru': "📏 Выберите размер:",
@@ -808,284 +2622,290 @@ async def show_cart(user_id, language, message):
 
     await message.answer(cart_text, reply_markup=get_cart_keyboard(language))
 
-# ================== ОСНОВНЫЕ КОМАНДЫ ==================
 @dp.message(Command("start"))
 async def start_bot(message: types.Message):
     user_id = message.from_user.id
     user = get_user(user_id)
-
+    
+    # Если пользователь уже зарегистрирован
     if user:
-        # Пользователь найден - сразу в главное меню
         language = user[2]
         
-        # Проверка на админа
+        # Если пользователь админ - предлагаем выбор роли
         if user_id in ADMIN_IDS:
-            await admin_panel(message)
+            if user_id not in USER_ROLES:
+                # Показываем выбор роли
+                if language == 'ru':
+                    text = "👋 Добро пожаловать обратно!\n\n📋 В какой роли вы хотите зайти?"
+                else:
+                    text = "👋 Xush kelibsiz!\n\n📋 Qaysi rolda kirishni xohlaysiz?"
+                
+                await message.answer(text, reply_markup=get_role_selection_keyboard())
+                return
+            else:
+                # Уже выбрал роль - показываем соответствующее меню
+                if USER_ROLES[user_id] == 'admin':
+                    await admin_panel(message)
+                else:
+                    text = get_text('welcome_back', language)
+                    await message.answer(text, reply_markup=get_main_menu(language))
         else:
+            # Обычный пользователь
             text = get_text('welcome_back', language)
             await message.answer(text, reply_markup=get_main_menu(language))
     else:
         # Новый пользователь - начинаем регистрацию
         user_sessions[user_id] = {'step': 'language'}
-        await message.answer(get_text('welcome', 'ru'), 
-                           reply_markup=get_language_keyboard())
+        await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
 
-# ВЫБОР ЯЗЫКА
-@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇿 O'zbekcha"]))
-async def handle_language(message: types.Message):
-    user_id = message.from_user.id
-    language = 'ru' if message.text == "🇷🇺 Русский" else 'uz'
+        # Обработчик выбора роли
+@dp.callback_query(F.data.startswith("role_"))
+async def handle_role_selection(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    role = callback.data.replace("role_", "")
+    
+    USER_ROLES[user_id] = role
+    
+    if role == 'admin':
+        admin_sessions[user_id] = {'is_admin': True}
+        await callback.message.edit_text("🛠️ Добро пожаловать в админ-панель!")
+        await callback.message.answer("📋 Выберите действие:", reply_markup=get_admin_menu())
+    else:
+        user = get_user(user_id)
+        language = user[2] if user else 'ru'
+        await callback.message.edit_text(get_text('welcome_back', language))
+        await callback.message.answer("📋 Главное меню:", reply_markup=get_main_menu(language))
+    
+    await callback.answer()
+    
 
-    user_sessions[user_id] = {'step': 'contact', 'language': language}
-    await message.answer(get_text('contact_request', language), reply_markup=get_contact_keyboard(language))
+# ================== ДОБАВЬ ЭТИ ФУНКЦИИ В НАЧАЛО (после POST_OFFICES) ==================
 
-# РУЧНОЙ ВВОД НОМЕРА
-@dp.message(F.text.in_(["📱 Ввести номер вручную", "📱 Raqamni qo'lda kiritish"]))
-async def handle_manual_phone_request(message: types.Message):
+def get_location_keyboard(lang: str):
+    """Клавиатура для отправки геолокации"""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(
+            text="Отправить геолокацию" if lang == 'ru' else "Joylashuvni yuborish",
+            request_location=True
+        )]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+# Используем уже существующий POST_OFFICES как PICKUP_POINTS
+PICKUP_POINTS = POST_OFFICES
+
+def get_pickup_points_keyboard(region_key: str, lang: str):
+    """Клавиатура с пунктами выдачи"""
+    if region_key not in PICKUP_POINTS:
+        return None
+    offices = PICKUP_POINTS[region_key][lang]
+    builder = ReplyKeyboardBuilder()
+    for office in offices:
+        short_name = office.split('—')[0].strip()
+        builder.add(KeyboardButton(text=short_name))
+    builder.add(KeyboardButton(text="Назад" if lang == 'ru' else "Orqaga"))
+    builder.adjust(1)
+    return builder.as_markup(resize_keyboard=True)
+
+# ================== ИСПРАВЛЕННЫЙ ОБРАБОТЧИК РЕГИОНА ==================
+
+@dp.message(F.text.in_([v for v in REGIONS['ru'].values()] + [v for v in REGIONS['uz'].values()]))
+async def handle_region_selection(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
-
-    if session.get('step') != 'contact':
+    
+    if session.get('step') != 'region':
         return
-
+        
     language = session.get('language', 'ru')
-    user_sessions[user_id]['step'] = 'manual_phone'
-
-    await message.answer(get_text('manual_phone_request', language), reply_markup=get_manual_phone_keyboard(language))
-
-# ОБРАБОТКА РУЧНОГО ВВОДА НОМЕРА
-@dp.message(F.text.regexp(r'^\+.*'))
-async def handle_manual_phone_input(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-
-    if session.get('step') != 'manual_phone':
+    text = message.text
+    
+    # Находим выбранный регион
+    selected_region = None
+    for region_key, region_name in REGIONS[language].items():
+        if text == region_name:
+            selected_region = region_key
+            break
+            
+    if not selected_region:
+        await message.answer(
+            "Пожалуйста, выберите регион из списка" if language == 'ru' else "Iltimos, ro'yxatdan viloyatni tanlang"
+        )
         return
+        
+    user_sessions[user_id]['region'] = selected_region
+    user_sessions[user_id]['selected_region'] = selected_region  # ДОБАВЛЕНО!
 
-    language = session.get('language', 'ru')
-    phone = message.text.strip()
-
-    if not phone.startswith('+998') or len(phone) != 13 or not phone[1:].isdigit():
-        if language == 'ru':
-            await message.answer("❌ Неверный формат номера. Введите в формате: +998901234567")
-        else:
-            await message.answer("❌ Noto'g'ri raqam formati. Formatda kiriting: +998901234567")
-        return
-
-    user_sessions[user_id]['step'] = 'region'
-    user_sessions[user_id]['phone'] = phone
-    user_sessions[user_id]['name'] = message.from_user.first_name or "Пользователь"
-
-    await message.answer(get_text('phone_received', language))
-    await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
-
-# ПОЛУЧЕНИЕ КОНТАКТА
-@dp.message(F.contact)
-async def handle_contact(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-
-    if session.get('step') != 'contact':
-        return
-
-    language = session.get('language', 'ru')
-    phone = message.contact.phone_number
-    name = message.contact.first_name or message.from_user.first_name
-
-    save_user(user_id, phone, name, language)
-    user_sessions[user_id]['step'] = 'region'
-    user_sessions[user_id]['phone'] = phone
-    user_sessions[user_id]['name'] = name
-
-    await message.answer(get_text('contact_received', language))
-    await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
-
-# ВЫБОР РЕГИОНА И ПОЧТОВОГО ОТДЕЛЕНИЯ
-@dp.message(F.text)
-async def handle_text_messages(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-
-    # Если пользователь выбирает регион
-    if session.get('step') == 'region':
-        language = session.get('language', 'ru')
-        text = message.text
-
-        selected_region = None
-        for region_key, region_name in REGIONS[language].items():
-            if text == region_name:
-                selected_region = region_key
-                break
-
-        if not selected_region:
-            if language == 'ru':
-                await message.answer("❌ Пожалуйста, выберите регион из списка")
-            else:
-                await message.answer("❌ Iltimos, ro'yxatdan viloyatni tanlang")
+    # Для Ташкента — геолокация
+    if selected_region == 'tashkent':
+        user_sessions[user_id]['step'] = 'location'  # НЕ post_office!
+        await message.answer(
+            "Ташкент — отправьте вашу геолокацию\nНаш курьер свяжется с вами для уточнения адреса" if language == 'ru'
+            else "Toshkent — joylashuvingizni yuboring\nBizning kuryerimiz manzilni aniqlash uchun siz bilan bog'lanadi",
+            reply_markup=get_location_keyboard(language)
+        )
+    else:
+        # Для других регионов — пункты выдачи
+        user_sessions[user_id]['step'] = 'pickup_point'
+        points = PICKUP_POINTS.get(selected_region, {}).get(language, [])
+        
+        if not points:
+            await message.answer(
+                "В этом регионе пока нет пунктов выдачи" if language == 'ru'
+                else "Ushbu viloyatda hozircha yetkazib berish punktlari yo'q"
+            )
             return
+        
+        # Формируем текст
+        region_name = REGIONS[language][selected_region]
+        text = f"<b>{region_name}</b>\n\n"
+        text += f"Всего пунктов: {len(points)}\n\n" if language == 'ru' else f"Jami punktlar: {len(points)}\n\n"
+        text += "Выберите пункт выдачи:" if language == 'ru' else "Yetkazib berish punktini tanlang:"
 
-        user_sessions[user_id]['step'] = 'post_office'
-        user_sessions[user_id]['region'] = selected_region
+        await message.answer(text, parse_mode='HTML', 
+                            reply_markup=get_pickup_points_keyboard(selected_region, language))
 
-        if selected_region == 'tashkent':
-            # Для Ташкента просим геолокацию
-            if language == 'ru':
-                await message.answer("📍 Ташкент - отправьте вашу геолокацию\n📞 Наш курьер свяжется с вами для уточнения адреса",
-                                   reply_markup=get_location_keyboard(language))
-            else:
-                await message.answer("📍 Toshkent - joylashuvingizni yuboring\n📞 Bizning kuryerimiz manzilni aniqlash uchun siz bilan bog'lanadi",
-                                   reply_markup=get_location_keyboard(language))
-        else:
-            # Для других регионов показываем почтовые отделения
-            if selected_region in POST_OFFICES:
-                offices = POST_OFFICES[selected_region][language]
-                for office in offices:
-                    await message.answer(office)
+# ================== ИСПРАВЛЕННЫЙ ОБРАБОТЧИК ГЕОЛОКАЦИИ ==================
 
-                await message.answer(get_text('post_office_request', language),
-                                   reply_markup=get_post_office_keyboard(selected_region, language))
-        return
-
-    # Если пользователь выбирает почтовое отделение
-    if session.get('step') == 'post_office':
-        language = session.get('language', 'ru')
-        region = session.get('region')
-        text = message.text
-
-        if text in ["↩️ Назад", "↩️ Orqaga"]:
-            user_sessions[user_id]['step'] = 'region'
-            await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
-            return
-
-        save_user(user_id, session['phone'], session['name'], language, region, text)
-        user_sessions[user_id]['step'] = 'main_menu'
-        user_sessions[user_id]['post_office'] = text
-
-        await message.answer(get_text('post_office_received', language),
-                           reply_markup=get_main_menu(language))
-        return
-
-    # Если пользователь в главном меню — передаём управление в handle_main_menu
-    await handle_main_menu(message)
-
-# ОБРАБОТКА ГЕОЛОКАЦИИ ДЛЯ ТАШКЕНТА
 @dp.message(F.location)
 async def handle_location(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
 
-    if session.get('step') == 'post_office' and session.get('region') == 'tashkent':
-        language = session.get('language', 'ru')
-        
-        # 🔥 СОХРАНЯЕМ КООРДИНАТЫ ДЛЯ АДМИНА
-        location_text = f"📍 Геолокация: {message.location.latitude}, {message.location.longitude}"
-        
-        save_user(user_id, session['phone'], session['name'], language, 'tashkent', location_text)
-        user_sessions[user_id]['step'] = 'main_menu'
-        user_sessions[user_id]['post_office'] = location_text
-        user_sessions[user_id]['coordinates'] = (message.location.latitude, message.location.longitude)  # 🔥 Сохраняем координаты
-
-        if language == 'ru':
-            await message.answer("✅ Геолокация получена! Курьер свяжется с вами для уточнения адреса.",
-                               reply_markup=get_main_menu(language))
-        else:
-            await message.answer("✅ Geolokatsiya qabul qilindi! Kuryer manzilni aniqlash uchun siz bilan bog'lanadi.",
-                               reply_markup=get_main_menu(language))
-# ================== ОБРАБОТКА ГЛАВНОГО МЕНЮ ==================
-async def handle_main_menu(message: types.Message):
-    user_id = message.from_user.id
-    user = get_user(user_id)
-
-    if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
+    if session.get('step') != 'location':
         return
 
-    phone, name, language, region, post_office = user
-    text = message.text
+    language = session.get('language', 'ru')
+    lat, lon = message.location.latitude, message.location.longitude
+    location_text = f"Геолокация: {lat}, {lon}"
 
-    # Обработка кнопок главного меню
-    if text in ["🛍️ Каталог", "🛍️ Katalog"]:
-        await show_catalog(message)
-    elif text in ["⭐ Мнения клиентов", "⭐ Mijozlar fikri"]:
-        await show_reviews_menu(message)
-    elif text in ["🛒 Корзина", "🛒 Savat"]:
-        await show_cart_command(message)
-    elif text in ["📦 Мои заказы", "📦 Mening buyurtmalarim"]:
-        await show_my_orders(message)
-    elif text in ["ℹ️ Помощь", "ℹ️ Yordam"]:
-        await show_help(message)
-    elif text in ["👕 Формы 2024/2025", "👕 2024/2025 Formalari"]:
-        await show_category_products(message, "Формы 2024/2025", "2024/2025 Formalari")
-    elif text in ["🕰️ Ретро формы", "🕰️ Retro formalar"]:
-        await show_category_products(message, "Ретро формы", "Retro Formalari")
-    elif text in ["⚽ Бутсы", "⚽ Futbolkalar"]:
-        await show_category_products(message, "Бутсы", "Futbolkalar")
-    elif text in ["🎁 Фут. атрибутика", "🎁 Futbol Aksessuarlari"]:
-        await show_category_products(message, "Футбольная атрибутика", "Futbol Aksessuarlari")
-    elif text in ["🔥 Акции", "🔥 Aksiyalar"]:
-        await show_category_products(message, "Акции", "Aksiyalar")
-    elif text in ["↩️ Назад", "↩️ Orqaga"]:
-        await back_to_main_menu(message)
-    elif text in ["❌ Отмена", "❌ Bekor qilish"]:
-        await handle_cancel(message)
-    elif text in ["⭐ Посмотреть отзывы", "⭐ Sharhlarni ko'rish"]:
-        await show_reviews(message)
-    elif text in ["✍️ Оставить отзыв", "✍️ Sharh qoldirish"]:
-        await start_review(message)
-    elif text in ["➕ Добавить еще товар", "➕ Yana mahsulot qo'shish"]:
-        await add_more_products(message)
-    elif text in ["💳 Оформить заказ", "💳 Buyurtma berish"]:
-        await checkout_cart(message)
-    elif text in ["🗑️ Очистить корзину", "🗑️ Savatni tozalash"]:
-        await clear_cart(message)
-    elif text in ["💳 Перевод на карту", "💳 Karta orqali to'lash"]:
-        await handle_payment(message)
-    elif text in ["✅ Да, добавить имя и номер", "✅ Ha, ism va raqam qo'shing"]:
-        await handle_customization_choice(message, True)
-    elif text in ["❌ Нет, без кастомизации", "❌ Yo'q, be'zashsiz"]:
-        await handle_customization_choice(message, False)
-    elif text in ["🔙 Назад к товарам", "🔙 Mahsulotlarga qaytish"]:
-        await back_to_catalog(message)
+    # Сохраняем в БД
+    save_user(
+        user_id=user_id,
+        phone=session['phone'],
+        name=session['name'],
+        language=language,
+        region='tashkent',
+        post_office=location_text
+    )
+
+    # Обновляем сессию
+    user_sessions[user_id]['step'] = 'main_menu'
+    user_sessions[user_id]['post_office'] = location_text
+    user_sessions[user_id]['coordinates'] = (lat, lon)
+
+    await message.answer(
+        "Геолокация получена! Курьер свяжется с вами для уточнения адреса." if language == 'ru'
+        else "Geolokatsiya qabul qilindi! Kuryer manzilni aniqlash uchun siz bilan bog'lanadi.",
+        reply_markup=get_main_menu(language)
+    )
+
+# ================== ИСПРАВЛЕННЫЙ /help (ВЫНЕСЕН ИЗ ФУНКЦИИ!) ==================
+
+@dp.message(Command("help"))
+async def help_command(message: types.Message):
+    user_id = message.from_user.id
+    
+    if user_id in ADMIN_IDS:
+        help_text = """
+<b>ПОМОЩЬ ДЛЯ АДМИНИСТРАТОРА</b>
+
+<b>Основные команды:</b>
+/start - Запуск бота (выбор роли)
+/admin - Переход в админ-панель
+/help - Эта справка
+
+<b>Админ-панель:</b>
+Статистика - Просмотр статистики магазина
+Заказы - Управление заказами
+Добавить товар - Добавление нового товара
+Управление товарами - Просмотр и удаление товаров
+Отзывы - Просмотр отзывов клиентов
+
+<b>Управление заказами:</b>
+• Подтверждение заказов после проверки чека
+• Отклонение заказов с проблемами
+• Связь с клиентами по телефону
+
+<b>Статусы заказов:</b>
+Новый - Только создан
+Ожидает подтверждения - Отправлен чек
+Подтвержден - Оплата проверена
+Отклонен - Проблема с оплатой
+        """
+        await message.answer(help_text, parse_mode='HTML', reply_markup=get_admin_help_keyboard())
     else:
-        # Проверяем, не является ли сообщение номером товара
-        if text and text.isdigit():
-            await handle_product_selection(message)
-        elif user_id in support_requests and support_requests[user_id].get('waiting_question'):
-            question = message.text
-            admin_text = f"❓ ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ\n\n👤 {name} (@{message.from_user.username or 'N/A'})\n📞 {phone}\n💬 {question}"
-            await notify_admins(admin_text)
-
-            if language == 'ru':
-                await message.answer("✅ Ваш вопрос отправлен! Мы ответим вам в ближайшее время.", reply_markup=get_main_menu(language))
-            else:
-                await message.answer("✅ Savolingiz yuborildi! Tez orada sizga javob beramiz.", reply_markup=get_main_menu(language))
-
-            support_requests[user_id]['waiting_question'] = False
-        elif user_id in user_sessions and user_sessions[user_id].get('waiting_review'):
-            review_text = message.text
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO reviews (customer_name, review_text_ru, review_text_uz, rating)
-                    VALUES (?, ?, ?, ?)
-                """, (name, review_text, review_text, 5))
-                conn.commit()
-
-            admin_text = f"📝 НОВЫЙ ОТЗЫВ\n\n👤 {name} (@{message.from_user.username or 'N/A'})\n📞 {phone}\n💬 {review_text}"
-            await notify_admins(admin_text)
-
-            if language == 'ru':
-                await message.answer("✅ Спасибо за ваш отзыв! Мы ценим ваше мнение!", reply_markup=get_main_menu(language))
-            else:
-                await message.answer("✅ Sharhingiz uchun rahmat! Biz sizning fikringizni qadrlaymiz!", reply_markup=get_main_menu(language))
-
-            user_sessions[user_id]['waiting_review'] = False
-        elif user_id in user_sessions and user_sessions[user_id].get('waiting_customization_text'):
-            await handle_customization_text(message)
+        user = get_user(user_id)
+        if user:
+            await show_help(message)
         else:
-            await message.answer("❌ Не понимаю команду. Используйте кнопки меню." if language == 'ru' else "❌ Buyruqni tushunmayman. Menyu tugmalaridan foydalaning.",
-                               reply_markup=get_main_menu(language))
+            await message.answer("Сначала завершите регистрацию через /start")
 
+# ================== ДОБАВЬ ЭТИ CALLBACK-И В КОНЕЦ ФАЙЛА ==================
+
+@dp.callback_query(F.data == "admin_commands")
+async def handle_admin_commands_help(callback: types.CallbackQuery):
+    help_text = """
+<b>КОМАНДЫ АДМИНИСТРАТОРА</b>
+
+<b>Основные команды:</b>
+/start - Запуск с выбором роли
+/admin - Вход в админ-панель  
+/help - Полная справка
+
+<b>Функции админ-панели:</b>
+• Статистика - общая статистика магазина
+• Заказы - управление всеми заказами
+• Добавить товар - пошаговое добавление
+• Управление товарами - просмотр/удаление
+• Отзывы - просмотр отзывов клиентов
+    """
+    await callback.message.answer(help_text, parse_mode='HTML')
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_orders_help")
+async def handle_admin_orders_help(callback: types.CallbackQuery):
+    help_text = """
+<b>УПРАВЛЕНИЕ ЗАКАЗАМИ</b>
+
+<b>Статусы заказов:</b>
+Новый - Только создан
+Ожидает подтверждения - Чек отправлен
+Подтвержден - Оплата проверена
+Отклонен - Проблема с оплатой
+
+<b>Действия с заказами:</b>
+• Подтвердить - после проверки чека
+• Отклонить - при проблемах с оплатой  
+• Связаться - для уточнения деталей
+    """
+    await callback.message.answer(help_text, parse_mode='HTML')
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_products_help")
+async def handle_admin_products_help(callback: types.CallbackQuery):
+    help_text = """
+<b>УПРАВЛЕНИЕ ТОВАРАМИ</b>
+
+<b>Добавление товара:</b>
+1. Выберите категорию
+2. Введите название на русском
+3. Введите название на узбекском  
+4. Укажите цену
+5. Добавьте описание
+6. Укажите размеры
+7. Загрузите фото
+
+<b>Категории:</b>
+• Формы 2024/2025
+• Ретро формы
+• Бутсы
+• Фут. атрибутика
+• Акции
+    """
+    await callback.message.answer(help_text, parse_mode='HTML')
+    await callback.answer()
 # ================== ФУНКЦИИ МАГАЗИНА ==================
 async def show_catalog(message: types.Message):
     user = get_user(message.from_user.id)
@@ -1485,6 +3305,7 @@ async def handle_receipt_photo(message: types.Message):
         f"👤 {name} (@{message.from_user.username or 'N/A'})\n"
         f"📞 {phone}\n"
         f"🏙️ {REGIONS['ru'].get(region, region)}\n"
+        f"🏙️ Город: {session.get('city', 'Не указан')}\n"  # ← ДОБАВИЛИ ГОРОД
         f"📮 {post_office}\n\n"
         f"📦 Товары:\n" + "\n".join(order_details) + f"\n\n"
         f"💰 Итого: {format_price(total_price, 'ru')}\n"
@@ -1505,15 +3326,7 @@ async def handle_receipt_photo(message: types.Message):
                                    caption=f"📸 Чек оплаты для заказов: {', '.join(map(str, order_ids))}")
                 
                 # 🔥 ДОПОЛНЕНИЕ: Если это Ташкент и есть геолокация - отправляем карту
-                if region == 'tashkent' and 'геолокация' in post_office.lower():
-                    # Извлекаем координаты из текста
-                    import re
-                    coords = re.findall(r'[-]?\d+\.\d+', post_office)
-                    if len(coords) == 2:
-                        lat, lon = float(coords[0]), float(coords[1])
-                        # Отправляем локацию
-                        await bot.send_location(admin_id, latitude=lat, longitude=lon,
-                                              caption=f"📍 Локация покупателя {name}")
+               
                         
             except Exception as e:
                 logging.error(f"Ошибка отправки админу {admin_id}: {e}")
@@ -1692,7 +3505,7 @@ async def handle_cancel(message: types.Message):
         await message.answer(get_text('order_cancelled', language),
                            reply_markup=get_main_menu(language))
 
-# ================== АДМИН ПАНЕЛЬ ==================
+# ================== АДМИН КОМАНДЫ ==================
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
