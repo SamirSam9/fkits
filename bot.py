@@ -6,14 +6,15 @@ import traceback
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler
 from datetime import datetime
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InputMediaPhoto
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters import Command
 from dotenv import load_dotenv
 import os
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -28,7 +29,7 @@ PORT = int(os.getenv("PORT", 10000))
 CARD_NUMBER = os.getenv('CARD_NUMBER', '6262 4700 5534 4787')
 
 # Админы
-ADMIN_IDS = [5009858379, 587180281, 1225271746]  
+ADMIN_IDS = [5009858379, 587180281, 1225271746]
 
 # Константы
 ORDER_NEW = 'new'
@@ -42,13 +43,26 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+# ================== FSM СОСТОЯНИЯ ==================
+class PaymentStates(StatesGroup):
+    waiting_for_receipt_photo = State()
+
+class AdminStates(StatesGroup):
+    adding_product = State()
+    waiting_product_name_ru = State()
+    waiting_product_name_uz = State()
+    waiting_product_price = State()
+    waiting_description_ru = State()
+    waiting_description_uz = State()
+    waiting_sizes_ru = State()
+    waiting_sizes_uz = State()
+    waiting_product_photo = State()
+
 # ================== СИСТЕМА РОЛЕЙ ==================
 USER_ROLES = {}
-
-# Инициализация ролей для админов
 for admin_id in ADMIN_IDS:
     if admin_id not in USER_ROLES:
-        USER_ROLES[admin_id] = 'admin'  # По умолчанию все админы в режиме админа
+        USER_ROLES[admin_id] = 'admin'
 
 def get_role_selection_keyboard():
     builder = InlineKeyboardBuilder()
@@ -73,252 +87,482 @@ def get_admin_help_keyboard():
     return builder.as_markup()
 
 async def notify_admins_with_role_check(text, photo_file_id=None, order_id=None):
-    """Уведомление админов с проверкой роли"""
     for admin_id in ADMIN_IDS:
         try:
-            # Если админ в режиме пользователя - предлагаем переключиться
             if USER_ROLES.get(admin_id) == 'user':
-                switch_text = f"🆕 Поступил новый заказ!\n\n{text}\n\nХотите перейти в режим админа для обработки?"
+                switch_text = f"🆕 Поступил новый заказ!\n{text}\nХотите перейти в режим админа для обработки?"
                 await bot.send_message(admin_id, switch_text, reply_markup=get_admin_switch_keyboard())
             else:
-                # Админ уже в режиме админа - обычное уведомление
                 if photo_file_id:
                     await bot.send_photo(admin_id, photo_file_id, caption=text)
                 else:
                     await bot.send_message(admin_id, text)
         except Exception as e:
             logging.error(f"Ошибка отправки админу {admin_id}: {e}")
+            # ================== ХРАНЕНИЕ ДАННЫХ В ПАМЯТИ ==================
+user_sessions = {}
+user_selections = {}
+user_carts = {}
+support_requests = {}
+admin_sessions = {}
 
-# Обработчики callback-запросов
-@dp.callback_query(F.data.in_(['switch_to_admin', 'stay_user']))
-async def process_role_switch(callback_query: types.CallbackQuery):
-    user_id = callback_query.from_user.id
-    
-    if callback_query.data == 'switch_to_admin':
-        # Переключаем в режим админа
-        USER_ROLES[user_id] = 'admin'
-        await callback_query.message.edit_text(
-            "✅ Вы перешли в режим админа. Теперь вы будете получать полные уведомления о заказах.",
-            reply_markup=None
-        )
+# ================== КЛАВИАТУРЫ ==================
+# Только этапы регистрации используют ReplyKeyboard
+
+def get_language_keyboard():
+    builder = ReplyKeyboardBuilder()
+    builder.add(KeyboardButton(text="🇷🇺 Русский"))
+    builder.add(KeyboardButton(text="🇺🇿 O'zbekcha"))
+    builder.adjust(2)
+    return builder.as_markup(resize_keyboard=True)
+
+def get_contact_keyboard(language):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📞 Отправить контакт" if language == 'ru' else "📞 Kontaktni yuborish", request_contact=True)],
+            [KeyboardButton(text="📱 Ввести номер вручную" if language == 'ru' else "📱 Raqamni qo'lda kiritish")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+def get_manual_phone_keyboard(language):
+    text = "🔙 Назад" if language == 'ru' else "🔙 Orqaga"
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=text)]],
+        resize_keyboard=True
+    )
+
+def get_region_keyboard(language):
+    builder = ReplyKeyboardBuilder()
+    regions = REGIONS[language]
+    for region_key in regions:
+        builder.add(KeyboardButton(text=regions[region_key]))
+    builder.adjust(2)
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+
+def get_post_office_keyboard(region, language):
+    builder = ReplyKeyboardBuilder()
+    if region in POST_OFFICES:
+        offices = POST_OFFICES[region][language]
+        for office in offices:
+            # 🔥 ИСПРАВЛЕНО: безопасное получение имени
+            if isinstance(office, dict):
+                office_name = office['name']
+            else:
+                office_name = office.split('\n')[0]
+            builder.add(KeyboardButton(text=office_name))
+    builder.add(KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga"))
+    builder.adjust(1)
+    return builder.as_markup(resize_keyboard=True)
+
+def get_location_keyboard(language):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📍 Отправить геолокацию" if language == 'ru' else "📍 Geolokatsiyani yuborish", request_location=True)],
+            [KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga")]
+        ],
+        resize_keyboard=True
+    )
+
+# 🔥 ВСЕ ОСНОВНЫЕ МЕНЮ — INLINE (под сообщением)
+def get_main_menu_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="🛍️ Каталог", callback_data="menu_catalog")
+        builder.button(text="⭐ Мнения клиентов", callback_data="menu_reviews")
+        builder.button(text="🛒 Корзина", callback_data="menu_cart")
+        builder.button(text="📦 Мои заказы", callback_data="menu_orders")
+        builder.button(text="ℹ️ Помощь", callback_data="menu_help")
     else:
-        # Остаемся в режиме пользователя
-        await callback_query.message.edit_text(
-            "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
-            reply_markup=None
-        )
-    
-    await callback_query.answer()
+        builder.button(text="🛍️ Katalog", callback_data="menu_catalog")
+        builder.button(text="⭐ Mijozlar fikri", callback_data="menu_reviews")
+        builder.button(text="🛒 Savat", callback_data="menu_cart")
+        builder.button(text="📦 Mening buyurtmalarim", callback_data="menu_orders")
+        builder.button(text="ℹ️ Yordam", callback_data="menu_help")
+    builder.adjust(2, 2, 1)
+    return builder.as_markup()
 
-@dp.callback_query(F.data.startswith("role_"))
-async def handle_role_selection(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    role = callback.data.replace("role_", "")
-    
-    USER_ROLES[user_id] = role
-    
-    if role == 'admin':
-        admin_sessions[user_id] = {'is_admin': True}
-        await callback.message.edit_text("🛠️ Добро пожаловать в админ-панель!")
-        await callback.message.answer("📋 Выберите действие:", reply_markup=get_admin_menu())
+def get_catalog_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="👕 Формы 2024/2025", callback_data="cat_forms_2024")
+        builder.button(text="🕰️ Ретро формы", callback_data="cat_retro")
+        builder.button(text="⚽ Бутсы", callback_data="cat_boots")
+        builder.button(text="🎁 Фут. атрибутика", callback_data="cat_accessories")
+        builder.button(text="🔥 Акции", callback_data="cat_promo")
+        builder.button(text="↩️ Назад", callback_data="back_main")
     else:
-        user = get_user(user_id)
-        language = user[2] if user else 'ru'
-        await callback.message.edit_text(get_text('welcome_back', language))
-        await callback.message.answer("📋 Главное меню:", reply_markup=get_main_menu(language))
-    
-    await callback.answer()
+        builder.button(text="👕 2024/2025 Formalari", callback_data="cat_forms_2024")
+        builder.button(text="🕰️ Retro formalar", callback_data="cat_retro")
+        builder.button(text="⚽ Futbolkalar", callback_data="cat_boots")
+        builder.button(text="🎁 Futbol Aksessuarlari", callback_data="cat_accessories")
+        builder.button(text="🔥 Aksiyalar", callback_data="cat_promo")
+        builder.button(text="↩️ Orqaga", callback_data="back_main")
+    builder.adjust(2, 2, 1, 1)
+    return builder.as_markup()
 
-# Другие callback-обработчики
-@dp.callback_query(F.data == "admin_commands")
-async def handle_admin_commands_help(callback: types.CallbackQuery):
-    help_text = """
-<b>КОМАНДЫ АДМИНИСТРАТОРА</b>
+def get_cart_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="🛒 Корзина", callback_data="menu_cart")
+        builder.button(text="➕ Добавить ещё", callback_data="menu_catalog")
+        builder.button(text="💳 Оформить заказ", callback_data="checkout")
+        builder.button(text="🗑️ Очистить корзину", callback_data="clear_cart")
+        builder.button(text="🔙 Главное меню", callback_data="back_main")
+    else:
+        builder.button(text="🛒 Savat", callback_data="menu_cart")
+        builder.button(text="➕ Yana qo'shish", callback_data="menu_catalog")
+        builder.button(text="💳 Buyurtma berish", callback_data="checkout")
+        builder.button(text="🗑️ Tozalash", callback_data="clear_cart")
+        builder.button(text="🔙 Asosiy", callback_data="back_main")
+    builder.adjust(2, 2, 1)
+    return builder.as_markup()
 
-<b>Основные команды:</b>
-/start - Запуск с выбором роли
-/admin - Вход в админ-панель  
-/help - Полная справка
+def get_reviews_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="⭐ Посмотреть", callback_data="show_reviews")
+        builder.button(text="✍️ Оставить", callback_data="write_review")
+        builder.button(text="↩️ Назад", callback_data="back_main")
+    else:
+        builder.button(text="⭐ Ko'rish", callback_data="show_reviews")
+        builder.button(text="✍️ Yozish", callback_data="write_review")
+        builder.button(text="↩️ Orqaga", callback_data="back_main")
+    builder.adjust(2, 1)
+    return builder.as_markup()
 
-<b>Функции админ-панели:</b>
-• Статистика - общая статистика магазина
-• Заказы - управление всеми заказами
-• Добавить товар - пошаговое добавление
-• Управление товарами - просмотр/удаление
-• Отзывы - просмотр отзывов клиентов
-    """
-    await callback.message.answer(help_text, parse_mode='HTML')
-    await callback.answer()
+def get_payment_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="💳 Перевод на карту", callback_data="pay_card")
+        builder.button(text="❌ Отмена", callback_data="cancel_order")
+    else:
+        builder.button(text="💳 Karta orqali", callback_data="pay_card")
+        builder.button(text="❌ Bekor qilish", callback_data="cancel_order")
+    builder.adjust(2)
+    return builder.as_markup()
 
-@dp.callback_query(F.data == "admin_orders_help")
-async def handle_admin_orders_help(callback: types.CallbackQuery):
-    help_text = """
-<b>УПРАВЛЕНИЕ ЗАКАЗАМИ</b>
+def get_admin_menu_inline():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📊 Статистика", callback_data="admin_stats")
+    builder.button(text="📦 Заказы", callback_data="admin_orders")
+    builder.button(text="➕ Добавить товар", callback_data="admin_add_product")
+    builder.button(text="🛍️ Управление товарами", callback_data="admin_manage_products")
+    builder.button(text="📝 Отзывы", callback_data="admin_reviews")
+    builder.button(text="🚪 Выйти", callback_data="admin_exit")
+    builder.adjust(2, 2, 1, 1)
+    return builder.as_markup()
 
-<b>Статусы заказов:</b>
-Новый - Только создан
-Ожидает подтверждения - Чек отправлен
-Подтвержден - Оплата проверена
-Отклонен - Проблема с оплатой
+def get_back_inline(language):
+    text = "↩️ Назад" if language == 'ru' else "↩️ Orqaga"
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data="back_main")]])
 
-<b>Действия с заказами:</b>
-• Подтвердить - после проверки чека
-• Отклонить - при проблемах с оплатой  
-• Связаться - для уточнения деталей
-    """
-    await callback.message.answer(help_text, parse_mode='HTML')
-    await callback.answer()
+# ================== ТЕКСТЫ ==================
+def get_text(key, language):
+    texts = {
+        'welcome': {
+            'ru': "👋 Добро пожаловать в FootballKits.uz!\nВыберите язык:",
+            'uz': "👋 FootballKits.uz ga xush kelibsiz!\nTilni tanlang:"
+        },
+        'welcome_back': {
+            'ru': "👋 Добро пожаловать обратно в FootballKits.uz!",
+            'uz': "👋 FootballKits.uz ga yana xush kelibsiz!"
+        },
+        'contact_request': {
+            'ru': "📞 Для продолжения поделитесь контактом или введите номер вручную:",
+            'uz': "📞 Davom etish uchun kontaktni ulashing yoki raqamni qo'lda kiriting:"
+        },
+        'manual_phone_request': {
+            'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567\n⚠️ На этот номер придёт SMS от почты с трек-номером!",
+            'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567\n⚠️ Ushbu raqamga pochta orqali trek raqami bilan SMS keladi!"
+        },
+        'region_request': {
+            'ru': "🏙️ Выберите ваш регион для доставки:",
+            'uz': "🏙️ Yetkazib berish uchun viloyatingizni tanlang:"
+        },
+        'post_office_request': {
+            'ru': "📮 Выберите почтовое отделение:",
+            'uz': "📮 Pochta bo'limini tanlang:"
+        },
+        'contact_received': {
+            'ru': "✅ Контакт получен!",
+            'uz': "✅ Kontakt qabul qilindi!"
+        },
+        'phone_received': {
+            'ru': "✅ Номер получен!",
+            'uz': "✅ Raqam qabul qilindi!"
+        },
+        'post_office_received': {
+            'ru': "✅ Отделение выбрано! Теперь вы можете выбирать товары:",
+            'uz': "✅ Boʻlim tanlandi! Endi mahsulotlarni tanlashingiz mumkin:"
+        },
+        'help_text': {
+            'ru': "🤝 Помощь\n📞 Телефон: +998 88 111-10-81\n📞 Телефон: +998 97 455-55-82\n⏰ Время работы: 9:00-23:00\n💬 Задайте ваш вопрос:",
+            'uz': "🤝 Yordam\n📞 Telefon: +998 88 111-10-81\n📞 Telefon: +998 97 455-55-82\n⏰ Ish vaqti: 9:00-23:00\n💬 Savolingizni bering:"
+        },
+        'choose_size': {
+            'ru': "📏 Выберите размер:",
+            'uz': "📏 Oʻlchamni tanlang:"
+        },
+        'size_selected': {
+            'ru': "✅ Размер выбран: ",
+            'uz': "✅ Oʻlcham tanlandi: "
+        },
+        'order_cancelled': {
+            'ru': "❌ Заказ отменен",
+            'uz': "❌ Buyurtma bekor qilindi"
+        }
+    }
+    return texts.get(key, {}).get(language, key)
 
-@dp.callback_query(F.data == "admin_products_help")
-async def handle_admin_products_help(callback: types.CallbackQuery):
-    help_text = """
-<b>УПРАВЛЕНИЕ ТОВАРАМИ</b>
+# ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
+def get_db_connection():
+    return sqlite3.connect(DB_FILENAME, check_same_thread=False)
 
-<b>Добавление товара:</b>
-1. Выберите категорию
-2. Введите название на русском
-3. Введите название на узбекском  
-4. Укажите цену
-5. Добавьте описание
-6. Укажите размеры
-7. Загрузите фото
-
-<b>Категории:</b>
-• Формы 2024/2025
-• Ретро формы
-• Бутсы
-• Фут. атрибутика
-• Акции
-    """
-    await callback.message.answer(help_text, parse_mode='HTML')
-    await callback.answer()
-
-# ================== БАЗА ДАННЫХ ==================
-DB_FILENAME = 'football_shop.db'
-
-def setup_database():
-    try:
-        conn = sqlite3.connect(DB_FILENAME, check_same_thread=False)
+def save_user(user_id, phone, name, language, region=None, post_office=None):
+    with get_db_connection() as conn:
         cursor = conn.cursor()
-
-        # Таблица пользователей
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY,
-                phone TEXT NOT NULL,
-                name TEXT NOT NULL,
-                language TEXT DEFAULT 'ru',
-                region TEXT,
-                post_office TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # Таблица товаров
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name_ru TEXT NOT NULL,
-                name_uz TEXT NOT NULL,
-                price INTEGER NOT NULL,
-                category_ru TEXT NOT NULL,
-                category_uz TEXT NOT NULL,
-                image_url TEXT,
-                description_ru TEXT,
-                description_uz TEXT,
-                sizes_ru TEXT,
-                sizes_uz TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # Таблица отзывов
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS reviews (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                customer_name TEXT NOT NULL,
-                review_text_ru TEXT NOT NULL,
-                review_text_uz TEXT NOT NULL,
-                photo_url TEXT,
-                rating INTEGER DEFAULT 5,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # Таблица заказов
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS orders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                user_phone TEXT NOT NULL,
-                user_name TEXT,
-                user_region TEXT,
-                user_post_office TEXT,
-                product_name TEXT NOT NULL,
-                product_price INTEGER NOT NULL,
-                product_size TEXT,
-                customization_text TEXT,
-                customization_price INTEGER DEFAULT 0,
-                payment_method TEXT DEFAULT 'card_pending',
-                status TEXT DEFAULT 'new',
-                receipt_photo_id TEXT,
-                confirmed_by INTEGER,
-                confirmed_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # Добавляем тестовые отзывы если их нет
-        cursor.execute("SELECT COUNT(*) FROM reviews")
-        if cursor.fetchone()[0] == 0:
-            test_reviews = [
-                ('Алишер', 'Отличное качество! Форма сидит идеально.', 'Ajoyib sifat! Forma aynan mos keldi.', '', 5),
-                ('Мария', 'Быстрая доставка, всё пришло в целости.', 'Tez yetkazib berish, hammasi butun holda keldi.', '', 5),
-                ('Сергей', 'Качество печати на высшем уровне!', 'Bosma sifatı eng yuqori darajada!', '', 5),
-                ('ADMIN', 'https://t.me/footballkitsreview', 'https://t.me/footballkitsreview', '', 5),
-            ]
-            cursor.executemany(
-                "INSERT INTO reviews (customer_name, review_text_ru, review_text_uz, photo_url, rating) VALUES (?, ?, ?, ?, ?)",
-                test_reviews
-            )
-
-        # Добавляем тестовые товары по вашим категориям
-        cursor.execute("SELECT COUNT(*) FROM products")
-        if cursor.fetchone()[0] == 0:
-            test_products = [
-                # Формы нынешний сезон
-                ('Форма Пахтакор 2024', 'Paxtakor Formasi 2024', 180000, 'Формы 2024/2025', '2024/2025 Formalari', '', 'Официальная форма ФК Пахтакор сезон 2024', 'Rasmiy Paxtakor FK formasi 2024', 'S, M, L, XL', 'S, M, L, XL'),
-                ('Форма Навбахор 2024', 'Navbahor Formasi 2024', 170000, 'Формы 2024/2025', '2024/2025 Formalari', '', 'Официальная форма ФК Навбахор', 'Rasmiy Navbahor FK formasi', 'S, M, L, XL', 'S, M, L, XL'),
-                
-                # Ретро формы
-                ('Ретро форма Пахтакор 1990', 'Paxtakor Retro Formasi 1990', 150000, 'Ретро формы', 'Retro Formalari', '', 'Ретро форма Пахтакор 90-х годов', '90-yillarning Paxtakor retro formasi', 'S, M, L, XL', 'S, M, L, XL'),
-                ('Ретро форма Навбахор 1995', 'Navbahor Retro Formasi 1995', 145000, 'Ретро формы', 'Retro Formalari', '', 'Ретро форма Навбахор 1995 года', '1995-yil Navbahor retro formasi', 'S, M, L, XL', 'S, M, L, XL'),
-                
-                # Бутсы
-                ('Бутсы Nike Mercurial', 'Nike Mercurial Futbolka', 220000, 'Бутсы', 'Futbolkalar', '', 'Профессиональные футбольные бутсы', 'Professional futbolkalar', '40, 41, 42, 43, 44', '40, 41, 42, 43, 44'),
-                ('Бутсы Adidas Predator', 'Adidas Predator Futbolka', 240000, 'Бутсы', 'Futbolkalar', '', 'Бутсы для контроля мяча', 'Topni nazorat qilish uchun futbolkalar', '40, 41, 42, 43, 44', '40, 41, 42, 43, 44'),
-                
-                # Акции
-                ('Набор форма+гетры', 'Forma+Gaitor to\'plam', 200000, 'Акции', 'Aksiyalar', '', 'Форма + гетры по специальной цене', 'Forma + gaitor maxsus narxda', 'S, M, L', 'S, M, L'),
-                
-                # Футбольная атрибутика
-                ('Вратарские перчатки', 'Darvozabon qo\'lqoplari', 80000, 'Футбольная атрибутика', 'Futbol Aksessuarlari', '', 'Профессиональные вратарские перчатки', 'Professional darvozabon qo\'lqoplari', 'S, M, L', 'S, M, L'),
-                ('Футбольный мяч', 'Futbol to\'pi', 120000, 'Футбольная атрибутика', 'Futbol Aksessuarlari', '', 'Официальный матчевый мяч', 'Rasmiy match to\'pi', 'Размер 5', '5-hajm'),
-                ('Гетры профессиональные', 'Professional gaitorlar', 25000, 'Футбольная атрибутика', 'Futbol Aksessuarlari', '', 'Профессиональные футбольные гетры', 'Professional futbol gaitorlari', 'Универсальный', 'Universal'),
-            ]
-            cursor.executemany(
-                "INSERT INTO products (name_ru, name_uz, price, category_ru, category_uz, image_url, description_ru, description_uz, sizes_ru, sizes_uz) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                test_products
-            )
-
+        cursor.execute(
+            "INSERT OR REPLACE INTO users (user_id, phone, name, language, region, post_office) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, phone, name, language, region, post_office)
+        )
         conn.commit()
-        conn.close()
-        logger.info("✅ База данных готова")
-    except Exception as e:
-        logger.error(f"❌ Ошибка базы данных: {e}")
-        raise
 
-# ... ОСТАВШИЙСЯ КОД ПРОДОЛЖАЕТСЯ ...
+def get_user(user_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT phone, name, language, region, post_office FROM users WHERE user_id = ?", (user_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Ошибка получения пользователя {user_id}: {e}")
+        return None
+
+def get_products_by_category_db(category_key, language):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if language == 'ru':
+            cursor.execute("SELECT id, name_ru, price, image_url, description_ru, sizes_ru FROM products WHERE category_ru = ?", (category_key,))
+        else:
+            cursor.execute("SELECT id, name_uz, price, image_url, description_uz, sizes_uz FROM products WHERE category_uz = ?", (category_key,))
+        return cursor.fetchall()
+
+def get_product_by_id(product_id, language):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if language == 'ru':
+            cursor.execute("SELECT name_ru, price, image_url, description_ru, sizes_ru FROM products WHERE id = ?", (product_id,))
+        else:
+            cursor.execute("SELECT name_uz, price, image_url, description_uz, sizes_uz FROM products WHERE id = ?", (product_id,))
+        return cursor.fetchone()
+
+def save_order(user_id, phone, name, region, post_office, product_name, product_price, product_size=None, customization_text=None, customization_price=0, payment_method='card_pending'):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO orders (user_id, user_phone, user_name, user_region, user_post_office, product_name, product_price, product_size, customization_text, customization_price, payment_method)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, phone, name, region, post_office, product_name, product_price, product_size, customization_text, customization_price, payment_method)
+        )
+        order_id = cursor.lastrowid
+        conn.commit()
+        return order_id
+
+def get_user_orders(user_id, language):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT product_name, product_price, customization_price, status, payment_method, created_at
+            FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5""",
+            (user_id,)
+        )
+        return cursor.fetchall()
+
+def get_all_orders(status=None):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if status:
+            cursor.execute(
+                """SELECT id, user_id, user_name, user_phone, user_region, user_post_office, product_name,
+                product_price, product_size, customization_text, customization_price, status, created_at
+                FROM orders WHERE status = ? ORDER BY created_at DESC""",
+                (status,)
+            )
+        else:
+            cursor.execute(
+                """SELECT id, user_id, user_name, user_phone, user_region, user_post_office, product_name,
+                product_price, product_size, customization_text, customization_price, status, created_at
+                FROM orders ORDER BY created_at DESC LIMIT 50"""
+            )
+        return cursor.fetchall()
+
+def update_order_status(order_id, status, admin_id=None):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if admin_id:
+            cursor.execute("UPDATE orders SET status = ?, confirmed_by = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                          (status, admin_id, order_id))
+        else:
+            cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
+        conn.commit()
+
+def get_order_by_id(order_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT id, user_id, user_name, user_phone, user_region, user_post_office, product_name,
+            product_price, product_size, customization_text, customization_price, status, receipt_photo_id
+            FROM orders WHERE id = ?""",
+            (order_id,)
+        )
+        return cursor.fetchone()
+
+def get_statistics():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM orders")
+        total_orders = cursor.fetchone()[0]
+        cursor.execute("SELECT status, COUNT(*) FROM orders GROUP BY status")
+        status_stats = cursor.fetchall()
+        cursor.execute("SELECT SUM(product_price + customization_price) FROM orders WHERE status = 'confirmed'")
+        total_revenue = cursor.fetchone()[0] or 0
+        return {
+            'total_users': total_users,
+            'total_orders': total_orders,
+            'status_stats': dict(status_stats),
+            'total_revenue': total_revenue
+        }
+
+def add_product(name_ru, name_uz, price, category_ru, category_uz, description_ru, description_uz, sizes_ru, sizes_uz, image_url=None):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO products (name_ru, name_uz, price, category_ru, category_uz, image_url, description_ru, description_uz, sizes_ru, sizes_uz)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name_ru, name_uz, price, category_ru, category_uz, image_url, description_ru, description_uz, sizes_ru, sizes_uz)
+        )
+        product_id = cursor.lastrowid
+        conn.commit()
+        return product_id
+
+def get_all_products():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name_ru, name_uz, price FROM products ORDER BY id DESC LIMIT 20")
+        return cursor.fetchall()
+
+def delete_product(product_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+def get_all_reviews():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT customer_name, review_text_ru, review_text_uz, photo_url, rating, created_at FROM reviews ORDER BY created_at DESC LIMIT 10")
+        return cursor.fetchall()
+
+def format_price(price, language):
+    try:
+        formatted = f"{int(price):,} UZS".replace(',', ' ')
+    except:
+        formatted = f"{price} UZS"
+    return formatted
+
+# ================== КАРТОЧКИ ТОВАРОВ ==================
+async def send_product_card(chat_id, product, language):
+    product_id, name, price, image_url, description, sizes = product
+    lower_name = (name or "").lower()
+    if any(word in lower_name for word in ['форма', 'formasi']):
+        emoji = "👕"
+    elif any(word in lower_name for word in ['бутсы', 'futbolka']):
+        emoji = "⚽"
+    elif any(word in lower_name for word in ['перчатки', 'мяч', 'гетры', 'qo\'lqop', 'to\'p', 'gaitor']):
+        emoji = "🎁"
+    else:
+        emoji = "🔥"
+    if language == 'ru':
+        caption = (
+            f"{emoji} <b>{name}</b>\n"
+            f"📝 {description}\n"
+            f"📏 <b>Размеры: {sizes}</b>\n"
+            f"💵 <b>Цена: {format_price(price, language)}</b>\n"
+            f"🆔 <code>ID: {product_id}</code>\n"
+            f"✨ <i>Нажмите на ID и отправьте боту, чтобы добавить в корзину</i>"
+        )
+    else:
+        caption = (
+            f"{emoji} <b>{name}</b>\n"
+            f"📝 {description}\n"
+            f"📏 <b>Oʻlchamlar: {sizes}</b>\n"
+            f"💵 <b>Narx: {format_price(price, language)}</b>\n"
+            f"🆔 <code>ID: {product_id}</code>\n"
+            f"✨ <i>ID ni bosib botga yuboring</i>"
+        )
+    try:
+        if image_url:
+            await bot.send_photo(
+                chat_id=chat_id,
+                photo=image_url,
+                caption=caption,
+                parse_mode='HTML',
+                reply_markup=get_back_inline(language)
+            )
+        else:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=caption,
+                parse_mode='HTML',
+                reply_markup=get_back_inline(language)
+            )
+    except Exception as e:
+        logging.error(f"Ошибка загрузки фото: {e}")
+        await bot.send_message(
+            chat_id=chat_id,
+            text=caption,
+            parse_mode='HTML',
+            reply_markup=get_back_inline(language)
+        )
+
+# ================== КОРЗИНА ==================
+async def show_cart(user_id, language, message_or_callback):
+    cart = user_carts.get(user_id, [])
+    if not cart:
+        text = "🛒 Корзина пуста" if language == 'ru' else "🛒 Savat bo'sh"
+        if isinstance(message_or_callback, types.Message):
+            await message_or_callback.answer(text, reply_markup=get_main_menu_inline(language))
+        else:
+            await message_or_callback.message.answer(text, reply_markup=get_main_menu_inline(language))
+        return
+    total_price = 0
+    cart_text = "🛒 Ваша корзина:\n" if language == 'ru' else "🛒 Sizning savatingiz:\n"
+    for i, item in enumerate(cart, 1):
+        item_price = item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0)
+        total_price += item_price
+        cart_text += f"{i}. {item['product_name']}\n"
+        if item.get('size'):
+            cart_text += f"   📏 Размер: {item['size']}\n" if language == 'ru' else f"   📏 Oʻlcham: {item['size']}\n"
+        if item.get('customization'):
+            cart_text += f"   ✨ Кастомизация: {item['customization']['text']}\n" if language == 'ru' else f"   ✨ Be'zash: {item['customization']['text']}\n"
+        cart_text += f"   💵 {format_price(item_price, language)}\n"
+    cart_text += f"💰 Итого: {format_price(total_price, language)}" if language == 'ru' else f"💰 Jami: {format_price(total_price, language)}"
+    if isinstance(message_or_callback, types.Message):
+        await message_or_callback.answer(cart_text, reply_markup=get_cart_inline(language))
+    else:
+        await message_or_callback.message.answer(cart_text, reply_markup=get_cart_inline(language))
+
+# ================== ОТОПРАВКА МЕНЮ СООБЩЕНИЕМ ==================
+async def send_main_menu_message(obj, language):
+    text = "📋 Главное меню:" if language == 'ru' else "📋 Asosiy menyu:"
+    if isinstance(obj, types.Message):
+        await obj.answer(text, reply_markup=get_main_menu_inline(language))
+    else:
+        await obj.message.answer(text, reply_markup=get_main_menu_inline(language))
 # ================== РЕГИОНЫ И ПОЧТЫ (100% РЕАЛЬНЫЕ ССЫЛКИ) ==================
 POST_OFFICES = {
     'tashkent': {
@@ -2121,7 +2365,6 @@ REGIONS = {
         'karakalpakstan': '🏙️ Qoraqalpogʻiston Respublikasi'
     }
 }
-
 # ================== ХРАНЕНИЕ ДАННЫХ В ПАМЯТИ ==================
 user_sessions = {}
 user_selections = {}
@@ -2129,7 +2372,7 @@ user_carts = {}
 support_requests = {}
 admin_sessions = {}
 
-# ================== КЛАВИАТУРЫ ==================
+# ================== КЛАВИАТУРЫ РЕГИСТРАЦИИ (ОСТАЮТСЯ НА REPLY) ==================
 def get_language_keyboard():
     builder = ReplyKeyboardBuilder()
     builder.add(KeyboardButton(text="🇷🇺 Русский"))
@@ -2157,12 +2400,8 @@ def get_manual_phone_keyboard(language):
 def get_region_keyboard(language):
     builder = ReplyKeyboardBuilder()
     regions = REGIONS[language]
-    
-    # Создаем прозрачные кнопки для всех регионов
     for region_key in regions:
         builder.add(KeyboardButton(text=regions[region_key]))
-    
-    # Настраиваем по 2 кнопки в ряд для красивого отображения
     builder.adjust(2)
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
@@ -2171,7 +2410,11 @@ def get_post_office_keyboard(region, language):
     if region in POST_OFFICES:
         offices = POST_OFFICES[region][language]
         for office in offices:
-            office_name = office.split('\n')[0]
+            # 🔥 ИСПРАВЛЕНО: безопасное получение имени
+            if isinstance(office, dict):
+                office_name = office['name']
+            else:
+                office_name = office.split('\n')[0]
             builder.add(KeyboardButton(text=office_name))
     builder.add(KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga"))
     builder.adjust(1)
@@ -2184,183 +2427,107 @@ def get_location_keyboard(language):
             [KeyboardButton(text="↩️ Назад" if language == 'ru' else "↩️ Orqaga")]
         ],
         resize_keyboard=True
-    )
+    ) 
 
-def get_main_menu(language):
-    builder = ReplyKeyboardBuilder()
-    if language == 'ru':
-        builder.add(KeyboardButton(text="🛍️ Каталог"))
-        builder.add(KeyboardButton(text="⭐ Мнения клиентов"))
-        builder.add(KeyboardButton(text="🛒 Корзина"))
-        builder.add(KeyboardButton(text="📦 Мои заказы"))
-        builder.add(KeyboardButton(text="ℹ️ Помощь"))
-    else:
-        builder.add(KeyboardButton(text="🛍️ Katalog"))
-        builder.add(KeyboardButton(text="⭐ Mijozlar fikri"))
-        builder.add(KeyboardButton(text="🛒 Savat"))
-        builder.add(KeyboardButton(text="📦 Mening buyurtmalarim"))
-        builder.add(KeyboardButton(text="ℹ️ Yordam"))
-    builder.adjust(2, 2, 1)
-    return builder.as_markup(resize_keyboard=True)
-
-def get_catalog_keyboard(language):
-    builder = ReplyKeyboardBuilder()
-    if language == 'ru':
-        builder.add(KeyboardButton(text="👕 Формы 2024/2025"))
-        builder.add(KeyboardButton(text="🕰️ Ретро формы"))
-        builder.add(KeyboardButton(text="⚽ Бутсы"))
-        builder.add(KeyboardButton(text="🎁 Фут. атрибутика"))
-        builder.add(KeyboardButton(text="🔥 Акции"))
-        builder.add(KeyboardButton(text="↩️ Назад"))
-    else:
-        builder.add(KeyboardButton(text="👕 2024/2025 Formalari"))
-        builder.add(KeyboardButton(text="🕰️ Retro formalar"))
-        builder.add(KeyboardButton(text="⚽ Futbolkalar"))
-        builder.add(KeyboardButton(text="🎁 Futbol Aksessuarlari"))
-        builder.add(KeyboardButton(text="🔥 Aksiyalar"))
-        builder.add(KeyboardButton(text="↩️ Orqaga"))
-    builder.adjust(2, 2, 1, 1)
-    return builder.as_markup(resize_keyboard=True)
-
-def get_customization_keyboard(language):
-    builder = ReplyKeyboardBuilder()
-    if language == 'ru':
-        builder.add(KeyboardButton(text="✅ Да, добавить имя и номер"))
-        builder.add(KeyboardButton(text="❌ Нет, без кастомизации"))
-        builder.add(KeyboardButton(text="🔙 Назад к товарам"))
-    else:
-        builder.add(KeyboardButton(text="✅ Ha, ism va raqam qo'shing"))
-        builder.add(KeyboardButton(text="❌ Yo'q, be'zashsiz"))
-        builder.add(KeyboardButton(text="🔙 Mahsulotlarga qaytish"))
-    builder.adjust(2, 1)
-    return builder.as_markup(resize_keyboard=True)
-
-def get_size_keyboard(language, product_category):
+# 🔥 INLINE КЛАВИАТУРЫ ДЛЯ ОСНОВНОГО МЕНЮ
+def get_main_menu_inline(language):
     builder = InlineKeyboardBuilder()
-    # Определяем размеры в зависимости от категории
-    if any(word in product_category.lower() for word in ['форма', 'formasi', 'аксессуар', 'aksessuar']):
-        sizes = [("S", "size_S"), ("M", "size_M"), ("L", "size_L"), ("XL", "size_XL"), ("XXL", "size_XXL")]
-    else:  # Бутсы
-        sizes = [("40", "size_40"), ("41", "size_41"), ("42", "size_42"), ("43", "size_43"), ("44", "size_44")]
-    
-    for size, callback_data in sizes:
-        builder.add(types.InlineKeyboardButton(text=size, callback_data=callback_data))
-    
-    help_text = "📏 Помощь" if language == 'ru' else "📏 Yordam"
-    builder.add(types.InlineKeyboardButton(text=help_text, callback_data="size_help"))
-    builder.adjust(3, 3, 1)
+    if language == 'ru':
+        builder.button(text="🛍️ Каталог", callback_data="menu_catalog")
+        builder.button(text="⭐ Мнения клиентов", callback_data="menu_reviews")
+        builder.button(text="🛒 Корзина", callback_data="menu_cart")
+        builder.button(text="📦 Мои заказы", callback_data="menu_orders")
+        builder.button(text="ℹ️ Помощь", callback_data="menu_help")
+    else:
+        builder.button(text="🛍️ Katalog", callback_data="menu_catalog")
+        builder.button(text="⭐ Mijozlar fikri", callback_data="menu_reviews")
+        builder.button(text="🛒 Savat", callback_data="menu_cart")
+        builder.button(text="📦 Mening buyurtmalarim", callback_data="menu_orders")
+        builder.button(text="ℹ️ Yordam", callback_data="menu_help")
+    builder.adjust(2, 2, 1)
     return builder.as_markup()
 
-def get_cart_keyboard(language):
-    builder = ReplyKeyboardBuilder()
+def get_catalog_inline(language):
+    builder = InlineKeyboardBuilder()
     if language == 'ru':
-        builder.add(KeyboardButton(text="🛒 Корзина"))
-        builder.add(KeyboardButton(text="➕ Добавить еще товар"))
-        builder.add(KeyboardButton(text="💳 Оформить заказ"))
-        builder.add(KeyboardButton(text="🗑️ Очистить корзину"))
-        builder.add(KeyboardButton(text="🔙 Главное меню"))
+        builder.button(text="👕 Формы 2024/2025", callback_data="cat_forms_2024")
+        builder.button(text="🕰️ Ретро формы", callback_data="cat_retro")
+        builder.button(text="⚽ Бутсы", callback_data="cat_boots")
+        builder.button(text="🎁 Фут. атрибутика", callback_data="cat_accessories")
+        builder.button(text="🔥 Акции", callback_data="cat_promo")
+        builder.button(text="↩️ Назад", callback_data="back_main")
     else:
-        builder.add(KeyboardButton(text="🛒 Savat"))
-        builder.add(KeyboardButton(text="➕ Yana mahsulot qo'shish"))
-        builder.add(KeyboardButton(text="💳 Buyurtma berish"))
-        builder.add(KeyboardButton(text="🗑️ Savatni tozalash"))
-        builder.add(KeyboardButton(text="🔙 Asosiy menyu"))
-    builder.adjust(2, 2, 1)
-    return builder.as_markup(resize_keyboard=True)
+        builder.button(text="👕 2024/2025 Formalari", callback_data="cat_forms_2024")
+        builder.button(text="🕰️ Retro formalar", callback_data="cat_retro")
+        builder.button(text="⚽ Futbolkalar", callback_data="cat_boots")
+        builder.button(text="🎁 Futbol Aksessuarlari", callback_data="cat_accessories")
+        builder.button(text="🔥 Aksiyalar", callback_data="cat_promo")
+        builder.button(text="↩️ Orqaga", callback_data="back_main")
+    builder.adjust(2, 2, 1, 1)
+    return builder.as_markup()
 
-def get_payment_menu(language):
-    builder = ReplyKeyboardBuilder()
+def get_cart_inline(language):
+    builder = InlineKeyboardBuilder()
     if language == 'ru':
-        builder.add(KeyboardButton(text="💳 Перевод на карту"))
-        builder.add(KeyboardButton(text="❌ Отмена"))
+        builder.button(text="🛒 Корзина", callback_data="menu_cart")
+        builder.button(text="➕ Добавить ещё", callback_data="menu_catalog")
+        builder.button(text="💳 Оформить заказ", callback_data="checkout")
+        builder.button(text="🗑️ Очистить корзину", callback_data="clear_cart")
+        builder.button(text="🔙 Главное меню", callback_data="back_main")
     else:
-        builder.add(KeyboardButton(text="💳 Karta orqali to'lash"))
-        builder.add(KeyboardButton(text="❌ Bekor qilish"))
+        builder.button(text="🛒 Savat", callback_data="menu_cart")
+        builder.button(text="➕ Yana qo'shish", callback_data="menu_catalog")
+        builder.button(text="💳 Buyurtma berish", callback_data="checkout")
+        builder.button(text="🗑️ Tozalash", callback_data="clear_cart")
+        builder.button(text="🔙 Asosiy", callback_data="back_main")
+    builder.adjust(2, 2, 1)
+    return builder.as_markup()
+
+def get_reviews_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="⭐ Посмотреть", callback_data="show_reviews")
+        builder.button(text="✍️ Оставить", callback_data="write_review")
+        builder.button(text="↩️ Назад", callback_data="back_main")
+    else:
+        builder.button(text="⭐ Ko'rish", callback_data="show_reviews")
+        builder.button(text="✍️ Yozish", callback_data="write_review")
+        builder.button(text="↩️ Orqaga", callback_data="back_main")
+    builder.adjust(2, 1)
+    return builder.as_markup()
+
+def get_payment_inline(language):
+    builder = InlineKeyboardBuilder()
+    if language == 'ru':
+        builder.button(text="💳 Перевод на карту", callback_data="pay_card")
+        builder.button(text="❌ Отмена", callback_data="cancel_order")
+    else:
+        builder.button(text="💳 Karta orqali", callback_data="pay_card")
+        builder.button(text="❌ Bekor qilish", callback_data="cancel_order")
     builder.adjust(2)
-    return builder.as_markup(resize_keyboard=True)
+    return builder.as_markup()
 
-def get_reviews_menu(language):
-    builder = ReplyKeyboardBuilder()
-    if language == 'ru':
-        builder.add(KeyboardButton(text="⭐ Посмотреть отзывы"))
-        builder.add(KeyboardButton(text="✍️ Оставить отзыв"))
-        builder.add(KeyboardButton(text="↩️ Назад"))
-    else:
-        builder.add(KeyboardButton(text="⭐ Sharhlarni ko'rish"))
-        builder.add(KeyboardButton(text="✍️ Sharh qoldirish"))
-        builder.add(KeyboardButton(text="↩️ Orqaga"))
-    builder.adjust(2, 1)
-    return builder.as_markup(resize_keyboard=True)
+def get_admin_menu_inline():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📊 Статистика", callback_data="admin_stats")
+    builder.button(text="📦 Заказы", callback_data="admin_orders")
+    builder.button(text="➕ Добавить товар", callback_data="admin_add_product")
+    builder.button(text="🛍️ Управление товарами", callback_data="admin_manage_products")
+    builder.button(text="📝 Отзывы", callback_data="admin_reviews")
+    builder.button(text="🚪 Выйти", callback_data="admin_exit")
+    builder.adjust(2, 2, 1, 1)
+    return builder.as_markup()
 
-def get_back_menu(language):
+def get_back_inline(language):
     text = "↩️ Назад" if language == 'ru' else "↩️ Orqaga"
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=text)]], resize_keyboard=True)
-
-# ================== АДМИН КЛАВИАТУРЫ ==================
-def get_admin_menu():
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="📊 Статистика"))
-    builder.add(KeyboardButton(text="📦 Заказы"))
-    builder.add(KeyboardButton(text="➕ Добавить товар"))
-    builder.add(KeyboardButton(text="🛍️ Управление товарами"))
-    builder.add(KeyboardButton(text="📝 Отзывы"))
-    builder.add(KeyboardButton(text="🔙 Выйти из админки"))
-    builder.adjust(2, 2, 1, 1)
-    return builder.as_markup(resize_keyboard=True)
-
-def get_orders_menu():
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(text="🔄 Ожидают подтверждения", callback_data="admin_orders_pending"))
-    builder.add(types.InlineKeyboardButton(text="✅ Подтвержденные", callback_data="admin_orders_confirmed"))
-    builder.add(types.InlineKeyboardButton(text="📋 Все заказы", callback_data="admin_orders_all"))
-    builder.adjust(1)
-    return builder.as_markup()
-
-def get_order_actions(order_id):
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{order_id}"))
-    builder.add(types.InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_{order_id}"))
-    builder.add(types.InlineKeyboardButton(text="📞 Связаться", callback_data=f"contact_{order_id}"))
-    builder.adjust(2, 1)
-    return builder.as_markup()
-
-def get_categories_keyboard():
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="👕 Формы 2024/2025"))
-    builder.add(KeyboardButton(text="🕰️ Ретро формы"))
-    builder.add(KeyboardButton(text="⚽ Бутсы"))
-    builder.add(KeyboardButton(text="🎁 Фут. атрибутика"))
-    builder.add(KeyboardButton(text="🔥 Акции"))
-    builder.add(KeyboardButton(text="🔙 Назад"))
-    builder.adjust(2, 2, 1, 1)
-    return builder.as_markup(resize_keyboard=True)
-
-def get_products_management_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(text="📦 Просмотреть все товары", callback_data="admin_products_view"))
-    builder.add(types.InlineKeyboardButton(text="🗑️ Удалить товар", callback_data="admin_products_delete"))
-    builder.add(types.InlineKeyboardButton(text="🔙 Назад", callback_data="admin_products_back"))
-    builder.adjust(1)
-    return builder.as_markup()
-
-def get_products_list_keyboard(products, action):
-    builder = InlineKeyboardBuilder()
-    for product in products:
-        product_id, name_ru, name_uz, price = product
-        builder.add(types.InlineKeyboardButton(
-            text=f"{product_id}. {name_ru} - {format_price(price, 'ru')}",
-            callback_data=f"{action}_{product_id}"
-        ))
-    builder.add(types.InlineKeyboardButton(text="🔙 Назад", callback_data="admin_products_back"))
-    builder.adjust(1)
-    return builder.as_markup()
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data="back_main")]])
 
 # ================== ТЕКСТЫ ==================
 def get_text(key, language):
     texts = {
         'welcome': {
-            'ru': "👋 Добро пожаловать в FootballKits.uz!\n\nВыберите язык:",
-            'uz': "👋 FootballKits.uz ga xush kelibsiz!\n\nTilni tanlang:"
+            'ru': "👋 Добро пожаловать в FootballKits.uz!\nВыберите язык:",
+            'uz': "👋 FootballKits.uz ga xush kelibsiz!\nTilni tanlang:"
         },
         'welcome_back': {
             'ru': "👋 Добро пожаловать обратно в FootballKits.uz!",
@@ -2371,8 +2538,8 @@ def get_text(key, language):
             'uz': "📞 Davom etish uchun kontaktni ulashing yoki raqamni qo'lda kiriting:"
         },
         'manual_phone_request': {
-            'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567\n\n⚠️ На этот номер придёт SMS от почты с трек-номером!",
-            'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567\n\n⚠️ Ushbu raqamga pochta orqali trek raqami bilan SMS keladi!"
+            'ru': "📱 Введите ваш номер телефона в формате:\n+998901234567\n⚠️ На этот номер придёт SMS от почты с трек-номером!",
+            'uz': "📱 Telefon raqamingizni quyidagi formatda kiriting:\n+998901234567\n⚠️ Ushbu raqamga pochta orqali trek raqami bilan SMS keladi!"
         },
         'region_request': {
             'ru': "🏙️ Выберите ваш регион для доставки:",
@@ -2395,8 +2562,8 @@ def get_text(key, language):
             'uz': "✅ Boʻlim tanlandi! Endi mahsulotlarni tanlashingiz mumkin:"
         },
         'help_text': {
-            'ru': "🤝 Помощь\n\n📞 Телефон: +998 88 111-10-81 \n📞 Телефон: +998 97 455-55-82 \n⏰ Время работы: 9:00-23:00\n\n💬 Задайте ваш вопрос:",
-            'uz': "🤝 Yordam\n\n📞 Telefon: +998 88 111-10-81\n📞 Telefon: +998 97 455-55-82 \n⏰ Ish vaqti: 9:00-23:00\n\n💬 Savolingizni bering:"
+            'ru': "🤝 Помощь\n📞 Телефон: +998 88 111-10-81\n📞 Телефон: +998 97 455-55-82\n⏰ Время работы: 9:00-23:00\n💬 Задайте ваш вопрос:",
+            'uz': "🤝 Yordam\n📞 Telefon: +998 88 111-10-81\n📞 Telefon: +998 97 455-55-82\n⏰ Ish vaqti: 9:00-23:00\n💬 Savolingizni bering:"
         },
         'choose_size': {
             'ru': "📏 Выберите размер:",
@@ -2413,7 +2580,7 @@ def get_text(key, language):
     }
     return texts.get(key, {}).get(language, key)
 
-# ================== БАЗА ДАННЫХ ФУНКЦИИ ==================
+# ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
 def get_db_connection():
     return sqlite3.connect(DB_FILENAME, check_same_thread=False)
 
@@ -2436,13 +2603,13 @@ def get_user(user_id):
         logger.error(f"Ошибка получения пользователя {user_id}: {e}")
         return None
 
-def get_products_by_category(category, language):
+def get_products_by_category_db(category_key, language):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         if language == 'ru':
-            cursor.execute("SELECT id, name_ru, price, image_url, description_ru, sizes_ru FROM products WHERE category_ru = ?", (category,))
+            cursor.execute("SELECT id, name_ru, price, image_url, description_ru, sizes_ru FROM products WHERE category_ru = ?", (category_key,))
         else:
-            cursor.execute("SELECT id, name_uz, price, image_url, description_uz, sizes_uz FROM products WHERE category_uz = ?", (category,))
+            cursor.execute("SELECT id, name_uz, price, image_url, description_uz, sizes_uz FROM products WHERE category_uz = ?", (category_key,))
         return cursor.fetchall()
 
 def get_product_by_id(product_id, language):
@@ -2518,19 +2685,14 @@ def get_order_by_id(order_id):
 def get_statistics():
     with get_db_connection() as conn:
         cursor = conn.cursor()
-
         cursor.execute("SELECT COUNT(*) FROM users")
         total_users = cursor.fetchone()[0]
-
         cursor.execute("SELECT COUNT(*) FROM orders")
         total_orders = cursor.fetchone()[0]
-
         cursor.execute("SELECT status, COUNT(*) FROM orders GROUP BY status")
         status_stats = cursor.fetchall()
-
         cursor.execute("SELECT SUM(product_price + customization_price) FROM orders WHERE status = 'confirmed'")
         total_revenue = cursor.fetchone()[0] or 0
-
         return {
             'total_users': total_users,
             'total_orders': total_orders,
@@ -2579,8 +2741,6 @@ def format_price(price, language):
 # ================== КАРТОЧКИ ТОВАРОВ ==================
 async def send_product_card(chat_id, product, language):
     product_id, name, price, image_url, description, sizes = product
-
-    # Определяем эмодзи по названию товара
     lower_name = (name or "").lower()
     if any(word in lower_name for word in ['форма', 'formasi']):
         emoji = "👕"
@@ -2590,26 +2750,24 @@ async def send_product_card(chat_id, product, language):
         emoji = "🎁"
     else:
         emoji = "🔥"
-
     if language == 'ru':
         caption = (
-            f"{emoji} <b>{name}</b>\n\n"
-            f"📝 {description}\n\n"
-            f"📏 <b>Размеры: {sizes}</b>\n\n"
-            f"💵 <b>Цена: {format_price(price, language)}</b>\n\n"
-            f"🆔 <code>ID: {product_id}</code>\n\n"
-            f"✨ <i>Чтобы заказать, напишите номер товара</i>"
+            f"{emoji} <b>{name}</b>\n"
+            f"📝 {description}\n"
+            f"📏 <b>Размеры: {sizes}</b>\n"
+            f"💵 <b>Цена: {format_price(price, language)}</b>\n"
+            f"🆔 <code>ID: {product_id}</code>\n"
+            f"✨ <i>Нажмите на ID и отправьте боту, чтобы добавить в корзину</i>"
         )
     else:
         caption = (
-            f"{emoji} <b>{name}</b>\n\n"
-            f"📝 {description}\n\n"
-            f"📏 <b>Oʻlchamlar: {sizes}</b>\n\n"
-            f"💵 <b>Narx: {format_price(price, language)}</b>\n\n"
-            f"🆔 <code>ID: {product_id}</code>\n\n"
-            f"✨ <i>Buyurtma berish uchun mahsulot raqamini yozing</i>"
+            f"{emoji} <b>{name}</b>\n"
+            f"📝 {description}\n"
+            f"📏 <b>Oʻlchamlar: {sizes}</b>\n"
+            f"💵 <b>Narx: {format_price(price, language)}</b>\n"
+            f"🆔 <code>ID: {product_id}</code>\n"
+            f"✨ <i>ID ni bosib botga yuboring</i>"
         )
-
     try:
         if image_url:
             await bot.send_photo(
@@ -2617,14 +2775,14 @@ async def send_product_card(chat_id, product, language):
                 photo=image_url,
                 caption=caption,
                 parse_mode='HTML',
-                reply_markup=get_back_menu(language)
+                reply_markup=get_back_inline(language)
             )
         else:
             await bot.send_message(
                 chat_id=chat_id,
                 text=caption,
                 parse_mode='HTML',
-                reply_markup=get_back_menu(language)
+                reply_markup=get_back_inline(language)
             )
     except Exception as e:
         logging.error(f"Ошибка загрузки фото: {e}")
@@ -2632,398 +2790,326 @@ async def send_product_card(chat_id, product, language):
             chat_id=chat_id,
             text=caption,
             parse_mode='HTML',
-            reply_markup=get_back_menu(language)
+            reply_markup=get_back_inline(language)
         )
 
-# ================== УВЕДОМЛЕНИЯ АДМИНАМ ==================
-async def notify_admins(text, photo_id=None):
-    for admin_id in ADMIN_IDS:
-        try:
-            if photo_id:
-                await bot.send_photo(admin_id, photo_id, caption=text)
-            else:
-                await bot.send_message(admin_id, text)
-        except Exception as e:
-            logging.error(f"Ошибка отправки админу {admin_id}: {e}")
-
 # ================== КОРЗИНА ==================
-async def show_cart(user_id, language, message):
+async def show_cart(user_id, language, message_or_callback):
     cart = user_carts.get(user_id, [])
-
     if not cart:
-        if language == 'ru':
-            await message.answer("🛒 Корзина пуста", reply_markup=get_main_menu(language))
+        text = "🛒 Корзина пуста" if language == 'ru' else "🛒 Savat bo'sh"
+        if isinstance(message_or_callback, types.Message):
+            await message_or_callback.answer(text, reply_markup=get_main_menu_inline(language))
         else:
-            await message.answer("🛒 Savat bo'sh", reply_markup=get_main_menu(language))
+            await message_or_callback.message.answer(text, reply_markup=get_main_menu_inline(language))
         return
-
     total_price = 0
-    cart_text = "🛒 Ваша корзина:\n\n" if language == 'ru' else "🛒 Sizning savatingiz:\n\n"
-
+    cart_text = "🛒 Ваша корзина:\n" if language == 'ru' else "🛒 Sizning savatingiz:\n"
     for i, item in enumerate(cart, 1):
         item_price = item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0)
         total_price += item_price
-
         cart_text += f"{i}. {item['product_name']}\n"
         if item.get('size'):
             cart_text += f"   📏 Размер: {item['size']}\n" if language == 'ru' else f"   📏 Oʻlcham: {item['size']}\n"
         if item.get('customization'):
             cart_text += f"   ✨ Кастомизация: {item['customization']['text']}\n" if language == 'ru' else f"   ✨ Be'zash: {item['customization']['text']}\n"
-        cart_text += f"   💵 {format_price(item_price, language)}\n\n"
-
+        cart_text += f"   💵 {format_price(item_price, language)}\n"
     cart_text += f"💰 Итого: {format_price(total_price, language)}" if language == 'ru' else f"💰 Jami: {format_price(total_price, language)}"
+    if isinstance(message_or_callback, types.Message):
+        await message_or_callback.answer(cart_text, reply_markup=get_cart_inline(language))
+    else:
+        await message_or_callback.message.answer(cart_text, reply_markup=get_cart_inline(language))
 
-    await message.answer(cart_text, reply_markup=get_cart_keyboard(language))
-
-@dp.message(Command("start"))
-async def start_bot(message: types.Message):
+# ================== ОТОПРАВКА МЕНЮ СООБЩЕНИЕМ ==================
+async def send_main_menu_message(obj, language):
+    text = "📋 Главное меню:" if language == 'ru' else "📋 Asosiy menyu:"
+    if isinstance(obj, types.Message):
+        await obj.answer(text, reply_markup=get_main_menu_inline(language))
+    else:
+        await obj.message.answer(text, reply_markup=get_main_menu_inline(language))
+# ================== РЕГИСТРАЦИЯ (ОСТАЁТСЯ НА REPLYKEYBOARD) ==================
+@dp.message(F.text.in_(['🇷🇺 Русский', '🇺🇿 O\'zbekcha']))
+async def handle_language(message: types.Message):
     user_id = message.from_user.id
-    user = get_user(user_id)
-    
-    # Если пользователь уже зарегистрирован
-    if user:
-        language = user[2]
-        
-        # Если пользователь админ - предлагаем выбор роли
-        if user_id in ADMIN_IDS:
-            if user_id not in USER_ROLES:
-                # Показываем выбор роли
-                if language == 'ru':
-                    text = "👋 Добро пожаловать обратно!\n\n📋 В какой роли вы хотите зайти?"
-                else:
-                    text = "👋 Xush kelibsiz!\n\n📋 Qaysi rolda kirishni xohlaysiz?"
-                
-                await message.answer(text, reply_markup=get_role_selection_keyboard())
-                return
-            else:
-                # Уже выбрал роль - показываем соответствующее меню
-                if USER_ROLES[user_id] == 'admin':
-                    await admin_panel(message)
-                else:
-                    text = get_text('welcome_back', language)
-                    await message.answer(text, reply_markup=get_main_menu(language))
-        else:
-            # Обычный пользователь
-            text = get_text('welcome_back', language)
-            await message.answer(text, reply_markup=get_main_menu(language))
-    else:
-        # Новый пользователь - начинаем регистрацию
-        user_sessions[user_id] = {'step': 'language'}
-        await message.answer(get_text('welcome', 'ru'), reply_markup=get_language_keyboard())
+    if user_sessions.get(user_id, {}).get('step') != 'language':
+        return
+    language = 'ru' if 'Русский' in message.text else 'uz'
+    user_sessions[user_id]['language'] = language
+    user_sessions[user_id]['step'] = 'contact'
+    await message.answer(get_text('contact_request', language), reply_markup=get_contact_keyboard(language))
 
-@dp.callback_query(F.data == "stay_user")
-async def handle_stay_user(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "❌ Остаюсь в режиме пользователя. Вы можете переключиться позже через /admin",
-        reply_markup=None
-    )
-    await callback.answer()
-        # Обработчик выбора роли
-@dp.callback_query(F.data.startswith("role_"))
-async def handle_role_selection(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    role = callback.data.replace("role_", "")
-    
-    USER_ROLES[user_id] = role
-    
-    if role == 'admin':
-        admin_sessions[user_id] = {'is_admin': True}
-        await callback.message.edit_text("🛠️ Добро пожаловать в админ-панель!")
-        await callback.message.answer("📋 Выберите действие:", reply_markup=get_admin_menu())
-    else:
-        user = get_user(user_id)
-        language = user[2] if user else 'ru'
-        await callback.message.edit_text(get_text('welcome_back', language))
-        await callback.message.answer("📋 Главное меню:", reply_markup=get_main_menu(language))
-    
-    await callback.answer()
-    
+@dp.message(F.contact)
+async def handle_contact(message: types.Message):
+    contact = message.contact
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    if session.get('step') != 'contact':
+        return
+    language = session.get('language', 'ru')
+    phone = contact.phone_number
+    name = contact.first_name
+    user_sessions[user_id]['phone'] = phone
+    user_sessions[user_id]['name'] = name
+    user_sessions[user_id]['step'] = 'region'
+    await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
 
-# ================== ДОБАВЬ ЭТИ ФУНКЦИИ В НАЧАЛО (после POST_OFFICES) ==================
+@dp.message(F.text.regexp(r'^\+998\d{9}$'))
+async def handle_manual_phone(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    if session.get('step') != 'contact':
+        return
+    language = session.get('language', 'ru')
+    phone = message.text
+    name = message.from_user.first_name or 'Покупатель'
+    user_sessions[user_id]['phone'] = phone
+    user_sessions[user_id]['name'] = name
+    user_sessions[user_id]['step'] = 'region'
+    await message.answer(get_text('region_request', language), reply_markup=get_region_keyboard(language))
 
-def get_location_keyboard(lang: str):
-    """Клавиатура для отправки геолокации"""
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(
-            text="Отправить геолокацию" if lang == 'ru' else "Joylashuvni yuborish",
-            request_location=True
-        )]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
+@dp.message(F.text == "📱 Ввести номер вручную")
+async def handle_manual_phone_request(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    if session.get('step') != 'contact':
+        return
+    language = session.get('language', 'ru')
+    await message.answer(get_text('manual_phone_request', language), reply_markup=get_manual_phone_keyboard(language))
 
-# Используем уже существующий POST_OFFICES как PICKUP_POINTS
-PICKUP_POINTS = POST_OFFICES
+@dp.message(F.text == "🔙 Назад")
+async def handle_back_manual_phone(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    if session.get('step') != 'contact':
+        return
+    language = session.get('language', 'ru')
+    await message.answer(get_text('contact_request', language), reply_markup=get_contact_keyboard(language))
 
-def get_pickup_points_keyboard(region_key: str, lang: str):
-    """Клавиатура с пунктами выдачи"""
-    if region_key not in PICKUP_POINTS:
-        return None
-    offices = PICKUP_POINTS[region_key][lang]
-    builder = ReplyKeyboardBuilder()
-    for office in offices:
-        short_name = office.split('—')[0].strip()
-        builder.add(KeyboardButton(text=short_name))
-    builder.add(KeyboardButton(text="Назад" if lang == 'ru' else "Orqaga"))
-    builder.adjust(1)
-    return builder.as_markup(resize_keyboard=True)
-
-# ================== ИСПРАВЛЕННЫЙ ОБРАБОТЧИК РЕГИОНА ==================
-
-@dp.message(F.text.in_([v for v in REGIONS['ru'].values()] + [v for v in REGIONS['uz'].values()]))
+# Обработчик выбора региона
+@dp.message(F.text)
 async def handle_region_selection(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
-    
     if session.get('step') != 'region':
         return
-        
     language = session.get('language', 'ru')
-    text = message.text
-    
-    # Находим выбранный регион
+    # Поиск региона по названию
     selected_region = None
     for region_key, region_name in REGIONS[language].items():
-        if text == region_name:
+        if message.text == region_name:
             selected_region = region_key
             break
-            
     if not selected_region:
-        await message.answer(
-            "Пожалуйста, выберите регион из списка" if language == 'ru' else "Iltimos, ro'yxatdan viloyatni tanlang"
-        )
+        await message.answer("Пожалуйста, выберите регион из списка")
         return
-        
     user_sessions[user_id]['region'] = selected_region
-    user_sessions[user_id]['selected_region'] = selected_region  # ДОБАВЛЕНО!
-
     # Для Ташкента — геолокация
     if selected_region == 'tashkent':
-        user_sessions[user_id]['step'] = 'location'  # НЕ post_office!
+        user_sessions[user_id]['step'] = 'location'
         await message.answer(
-            "Ташкент — отправьте вашу геолокацию\nНаш курьер свяжется с вами для уточнения адреса" if language == 'ru'
-            else "Toshkent — joylashuvingizni yuboring\nBizning kuryerimiz manzilni aniqlash uchun siz bilan bog'lanadi",
+            "📍 Отправьте геолокацию для доставки курьером",
             reply_markup=get_location_keyboard(language)
         )
     else:
         # Для других регионов — пункты выдачи
-        user_sessions[user_id]['step'] = 'pickup_point'
-        points = PICKUP_POINTS.get(selected_region, {}).get(language, [])
-        
-        if not points:
-            await message.answer(
-                "В этом регионе пока нет пунктов выдачи" if language == 'ru'
-                else "Ushbu viloyatda hozircha yetkazib berish punktlari yo'q"
-            )
-            return
-        
-        # Формируем текст
-        region_name = REGIONS[language][selected_region]
-        text = f"<b>{region_name}</b>\n\n"
-        text += f"Всего пунктов: {len(points)}\n\n" if language == 'ru' else f"Jami punktlar: {len(points)}\n\n"
-        text += "Выберите пункт выдачи:" if language == 'ru' else "Yetkazib berish punktini tanlang:"
-
-        await message.answer(text, parse_mode='HTML', 
-                            reply_markup=get_pickup_points_keyboard(selected_region, language))
-
-# ================== ИСПРАВЛЕННЫЙ ОБРАБОТЧИК ГЕОЛОКАЦИИ ==================
+        user_sessions[user_id]['step'] = 'post_office'
+        await message.answer(get_text('post_office_request', language), reply_markup=get_post_office_keyboard(selected_region, language))
 
 @dp.message(F.location)
 async def handle_location(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
-
     if session.get('step') != 'location':
         return
-
     language = session.get('language', 'ru')
     lat, lon = message.location.latitude, message.location.longitude
     location_text = f"Геолокация: {lat}, {lon}"
+    save_user(user_id, session['phone'], session['name'], language, 'tashkent', location_text)
+    await message.answer(get_text('post_office_received', language), reply_markup=get_main_menu_inline(language))
+    user_sessions[user_id]['step'] = 'completed'
 
-    # Сохраняем в БД
-    save_user(
-        user_id=user_id,
-        phone=session['phone'],
-        name=session['name'],
-        language=language,
-        region='tashkent',
-        post_office=location_text
-    )
+@dp.message(F.text)
+async def handle_post_office_selection(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    if session.get('step') != 'post_office':
+        return
+    language = session.get('language', 'ru')
+    region = session.get('region')
+    # Сохраняем выбранный пункт выдачи
+    save_user(user_id, session['phone'], session['name'], language, region, message.text)
+    await message.answer(get_text('post_office_received', language), reply_markup=get_main_menu_inline(language))
+    user_sessions[user_id]['step'] = 'completed'
 
-    # Обновляем сессию
-    user_sessions[user_id]['step'] = 'main_menu'
-    user_sessions[user_id]['post_office'] = location_text
-    user_sessions[user_id]['coordinates'] = (lat, lon)
-
-    await message.answer(
-        "Геолокация получена! Курьер свяжется с вами для уточнения адреса." if language == 'ru'
-        else "Geolokatsiya qabul qilindi! Kuryer manzilni aniqlash uchun siz bilan bog'lanadi.",
-        reply_markup=get_main_menu(language)
-    )
-
-# ================== ИСПРАВЛЕННЫЙ /help (ВЫНЕСЕН ИЗ ФУНКЦИИ!) ==================
-
+# ================== ОСНОВНЫЕ КОМАНДЫ ==================
 @dp.message(Command("help"))
 async def help_command(message: types.Message):
     user_id = message.from_user.id
-    
     if user_id in ADMIN_IDS:
-        help_text = """
-<b>ПОМОЩЬ ДЛЯ АДМИНИСТРАТОРА</b>
-
-<b>Основные команды:</b>
-/start - Запуск бота (выбор роли)
-/admin - Переход в админ-панель
-/help - Эта справка
-
-<b>Админ-панель:</b>
-Статистика - Просмотр статистики магазина
-Заказы - Управление заказами
-Добавить товар - Добавление нового товара
-Управление товарами - Просмотр и удаление товаров
-Отзывы - Просмотр отзывов клиентов
-
-<b>Управление заказами:</b>
-• Подтверждение заказов после проверки чека
-• Отклонение заказов с проблемами
-• Связь с клиентами по телефону
-
-<b>Статусы заказов:</b>
-Новый - Только создан
-Ожидает подтверждения - Отправлен чек
-Подтвержден - Оплата проверена
-Отклонен - Проблема с оплатой
-        """
+        help_text = """<b>ПОМОЩЬ ДЛЯ АДМИНА</b>..."""
         await message.answer(help_text, parse_mode='HTML', reply_markup=get_admin_help_keyboard())
     else:
         user = get_user(user_id)
         if user:
-            await show_help(message)
+            language = user[2]
+            await message.answer(get_text('help_text', language), parse_mode='HTML')
+            support_requests[user_id] = {'waiting_question': True}
         else:
             await message.answer("Сначала завершите регистрацию через /start")
 
-# ================== ДОБАВЬ ЭТИ CALLBACK-И В КОНЕЦ ФАЙЛА ==================
-
-@dp.callback_query(F.data == "admin_commands")
-async def handle_admin_commands_help(callback: types.CallbackQuery):
-    help_text = """
-<b>КОМАНДЫ АДМИНИСТРАТОРА</b>
-
-<b>Основные команды:</b>
-/start - Запуск с выбором роли
-/admin - Вход в админ-панель  
-/help - Полная справка
-
-<b>Функции админ-панели:</b>
-• Статистика - общая статистика магазина
-• Заказы - управление всеми заказами
-• Добавить товар - пошаговое добавление
-• Управление товарами - просмотр/удаление
-• Отзывы - просмотр отзывов клиентов
-    """
-    await callback.message.answer(help_text, parse_mode='HTML')
-    await callback.answer()
-
-@dp.callback_query(F.data == "admin_orders_help")
-async def handle_admin_orders_help(callback: types.CallbackQuery):
-    help_text = """
-<b>УПРАВЛЕНИЕ ЗАКАЗАМИ</b>
-
-<b>Статусы заказов:</b>
-Новый - Только создан
-Ожидает подтверждения - Чек отправлен
-Подтвержден - Оплата проверена
-Отклонен - Проблема с оплатой
-
-<b>Действия с заказами:</b>
-• Подтвердить - после проверки чека
-• Отклонить - при проблемах с оплатой  
-• Связаться - для уточнения деталей
-    """
-    await callback.message.answer(help_text, parse_mode='HTML')
-    await callback.answer()
-
-@dp.callback_query(F.data == "admin_products_help")
-async def handle_admin_products_help(callback: types.CallbackQuery):
-    help_text = """
-<b>УПРАВЛЕНИЕ ТОВАРАМИ</b>
-
-<b>Добавление товара:</b>
-1. Выберите категорию
-2. Введите название на русском
-3. Введите название на узбекском  
-4. Укажите цену
-5. Добавьте описание
-6. Укажите размеры
-7. Загрузите фото
-
-<b>Категории:</b>
-• Формы 2024/2025
-• Ретро формы
-• Бутсы
-• Фут. атрибутика
-• Акции
-    """
-    await callback.message.answer(help_text, parse_mode='HTML')
-    await callback.answer()
-# ================== ФУНКЦИИ МАГАЗИНА ==================
-async def show_catalog(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
+@dp.message(Command("admin"))
+async def admin_panel(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ У вас нет доступа")
         return
+    admin_sessions[message.from_user.id] = {'is_admin': True}
+    await message.answer("🛠️ Админ-панель", reply_markup=get_admin_menu_inline())
 
-    phone, name, language, region, post_office = user
-
-    if language == 'ru':
-        text = "🛍️ Выберите категорию:"
-    else:
-        text = "🛍️ Toifani tanlang:"
-
-    await message.answer(text, reply_markup=get_catalog_keyboard(language))
-
-async def show_category_products(message: types.Message, category_ru: str, category_uz: str):
-    user = get_user(message.from_user.id)
+# ================== CALLBACK-ОБРАБОТЧИКИ ОСНОВНОГО МЕНЮ ==================
+@dp.callback_query(F.data == "menu_catalog")
+async def menu_catalog(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
     if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
         return
+    language = user[2]
+    await callback.message.answer("🛍️ Выберите категорию:", reply_markup=get_catalog_inline(language))
+    await callback.answer()
 
-    phone, name, language, region, post_office = user
-
-    products = get_products_by_category(category_ru, language)
-
-    if products:
-        category_name = category_ru if language == 'ru' else category_uz
-        if language == 'ru':
-            await message.answer(f"🏷️ {category_name}:\n\n👇 Вот наши товары:")
+@dp.callback_query(F.data.startswith("cat_"))
+async def handle_category(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
+        return
+    language = user[2]
+    cat_map = {
+        "cat_forms_2024": ("Формы 2024/2025", "2024/2025 Formalari"),
+        "cat_retro": ("Ретро формы", "Retro Formalari"),
+        "cat_boots": ("Бутсы", "Futbolkalar"),
+        "cat_accessories": ("Футбольная атрибутика", "Futbol Aksessuarlari"),
+        "cat_promo": ("Акции", "Aksiyalar")
+    }
+    if callback.data in cat_map:
+        cat_ru, cat_uz = cat_map[callback.data]
+        category_key = cat_ru if language == 'ru' else cat_uz
+        products = get_products_by_category_db(category_key, language)
+        if products:
+            cat_name = cat_ru if language == 'ru' else cat_uz
+            await callback.message.answer(f"🏷️ {cat_name}:\n👇 Вот наши товары:")
+            for product in products:
+                await send_product_card(callback.message.chat.id, product, language)
         else:
-            await message.answer(f"🏷️ {category_name}:\n\n👇 Bizning mahsulotlarimiz:")
+            text = f"😔 В категории '{cat_ru}' пока нет товаров" if language == 'ru' else f"😔 '{cat_uz}' toifasida hozircha mahsulotlar yo'q"
+            await callback.message.answer(text, reply_markup=get_main_menu_inline(language))
+    await callback.answer()
 
-        for product in products:
-            await send_product_card(message.chat.id, product, language)
+@dp.callback_query(F.data == "menu_cart")
+async def menu_cart(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
+        return
+    language = user[2]
+    await show_cart(callback.from_user.id, language, callback)
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu_reviews")
+async def menu_reviews(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
+        return
+    language = user[2]
+    text = "⭐ Мнение клиентов\nВыберите действие:" if language == 'ru' else "⭐ Mijozlar fikri\nAmalni tanlang:"
+    await callback.message.answer(text, reply_markup=get_reviews_inline(language))
+    await callback.answer()
+
+@dp.callback_query(F.data == "show_reviews")
+async def show_reviews(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        return
+    language = user[2]
+    reviews = get_all_reviews()
+    if not reviews:
+        text = "😔 Пока нет отзывов" if language == 'ru' else "😔 Hozircha sharhlar yo'q"
+        await callback.message.answer(text)
     else:
-        if language == 'ru':
-            await message.answer(f"😔 В категории '{category_ru}' пока нет товаров", reply_markup=get_main_menu(language))
-        else:
-            await message.answer(f"😔 '{category_uz}' toifasida hozircha mahsulotlar yo'q", reply_markup=get_main_menu(language))
+        for review in reviews[:5]:
+            customer_name, review_text_ru, review_text_uz, photo_url, rating, created_at = review
+            stars = "⭐" * rating
+            review_text = review_text_ru if language == 'ru' else review_text_uz
+            caption = f"{stars}\n👤 {customer_name}\n💬 {review_text}"
+            if photo_url:
+                await callback.message.answer_photo(photo_url, caption=caption)
+            else:
+                await callback.message.answer(caption)
+    await callback.answer()
 
-# ВЫБОР ТОВАРА (обработчик по цифровому сообщению)
+@dp.callback_query(F.data == "write_review")
+async def write_review(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        return
+    language = user[2]
+    text = "✍️ Напишите ваш отзыв..." if language == 'ru' else "✍️ Sharhingizni yozing..."
+    await callback.message.answer(text)
+    user_sessions[callback.from_user.id] = {'waiting_review': True}
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu_orders")
+async def menu_orders(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
+        return
+    orders = get_user_orders(callback.from_user.id, 'ru')
+    if orders:
+        response = "📦 Ваши заказы:\n"
+        for i, (product_name, product_price, customization_price, status, payment, created_at) in enumerate(orders, 1):
+            total_price = product_price + (customization_price or 0)
+            status_icon = "✅" if status == "confirmed" else "🔄" if status == "waiting_confirm" else "🆕"
+            status_text = "Подтвержден" if status == "confirmed" else "Ожидает подтверждения" if status == "waiting_confirm" else "Новый"
+            response += f"{i}. {product_name}\n💵 {format_price(total_price, 'ru')}\n{status_icon} {status_text}\n📅 {created_at[:16]}\n"
+    else:
+        response = "📦 У вас еще нет заказов"
+    await callback.message.answer(response)
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu_help")
+async def menu_help(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
+        return
+    language = user[2]
+    await callback.message.answer(get_text('help_text', language), parse_mode='HTML')
+    support_requests[callback.from_user.id] = {'waiting_question': True}
+    await callback.answer()
+
+@dp.callback_query(F.data == "back_main")
+async def back_main(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("❌ Зарегистрируйтесь", show_alert=True)
+        return
+    language = user[2]
+    await send_main_menu_message(callback, language)
+    await callback.answer()
+    # ================== ОБРАБОТКА ВЫБОРА ТОВАРА ==================
 @dp.message(F.text.regexp(r'^\d+$'))
 async def handle_product_selection(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
-
     phone, name, language, region, post_office = user
-
     try:
         product_id = int(message.text)
         product = get_product_by_id(product_id, language)
-
         if product:
             product_name, product_price, image_url, description, sizes = product
-
             # Проверяем, является ли товар формой (для кастомизации)
             if any(word in (product_name or "").lower() for word in ['форма', 'formasi']):
                 user_selections[message.from_user.id] = {
@@ -3043,16 +3129,15 @@ async def handle_product_selection(message: types.Message):
                     'category': 'Другое'
                 }
                 if language == 'ru':
-                    text = f"🛒 Вы выбрали:\n\n📦 {product_name}\n💵 {format_price(product_price, language)}\n\n{get_text('choose_size', language)}"
+                    text = f"🛒 Вы выбрали:\n📦 {product_name}\n💵 {format_price(product_price, language)}\n{get_text('choose_size', language)}"
                 else:
-                    text = f"🛒 Siz tanladingiz:\n\n📦 {product_name}\n💵 {format_price(product_price, language)}\n\n{get_text('choose_size', language)}"
+                    text = f"🛒 Siz tanladingiz:\n📦 {product_name}\n💵 {format_price(product_price, language)}\n{get_text('choose_size', language)}"
                 await message.answer(text, reply_markup=get_size_keyboard(language, 'Другое'))
         else:
             if language == 'ru':
                 await message.answer("❌ Товар не найден")
             else:
                 await message.answer("❌ Mahsulot topilmadi")
-
     except Exception as e:
         logging.error(f"Ошибка выбора товара: {e}")
         if language == 'ru':
@@ -3060,236 +3145,183 @@ async def handle_product_selection(message: types.Message):
         else:
             await message.answer("❌ Mahsulotni tanlashda xato")
 
-# КАСТОМИЗАЦИЯ
+# ================== КАСТОМИЗАЦИЯ ==================
 async def ask_customization(message: types.Message, language: str, product_name: str, product_price: int):
     if language == 'ru':
         text = (
-            f"🎨 <b>Добавить имя и номер на форму?</b>\n\n"
+            f"🎨 <b>Добавить имя и номер на форму?</b>\n"
             f"📦 Товар: {product_name}\n"
-            f"💵 Базовая цена: {format_price(product_price, language)}\n\n"
+            f"💵 Базовая цена: {format_price(product_price, language)}\n"
             f"✨ <b>Кастомизация (+{format_price(CUSTOMIZATION_PRICE, language)}):</b>\n"
-            f"• Имя на спине\n• Номер на спине\n• Профессиональная печать\n\n"
+            f"• Имя на спине\n• Номер на спине\n• Профессиональная печать\n"
             f"Выберите вариант:"
         )
     else:
         text = (
-            f"🎨 <b>Formaga ism va raqam qo'shilsinmi?</b>\n\n"
+            f"🎨 <b>Formaga ism va raqam qo'shilsinmi?</b>\n"
             f"📦 Mahsulot: {product_name}\n"
-            f"💵 Asosiy narx: {format_price(product_price, language)}\n\n"
+            f"💵 Asosiy narx: {format_price(product_price, language)}\n"
             f"✨ <b>Be'zash (+{format_price(CUSTOMIZATION_PRICE, language)}):</b>\n"
-            f"• Orqaga ism\n• Orqaga raqam\n• Professional bosma\n\n"
+            f"• Orqaga ism\n• Orqaga raqam\n• Professional bosma\n"
             f"Variantni tanlang:"
         )
-
     await message.answer(text, parse_mode='HTML', reply_markup=get_customization_keyboard(language))
 
 async def handle_customization_choice(message: types.Message, wants_customization: bool):
     user = get_user(message.from_user.id)
     if not user or message.from_user.id not in user_selections:
         return
-
     language = user[2]
     selection = user_selections[message.from_user.id]
-
     if wants_customization:
         selection['customization'] = {'price': CUSTOMIZATION_PRICE}
-
         if language == 'ru':
             text = "✍️ Введите имя и номер для печати (например: «РАХМОН 7» или «ALI 9»):"
         else:
             text = "✍️ Bosma uchun ism va raqamni kiriting (masalan: «RAHMON 7» yoki «ALI 9»):"
-
         await message.answer(text, reply_markup=get_back_menu(language))
         user_sessions[message.from_user.id] = {'waiting_customization_text': True}
     else:
         selection['customization'] = None
         category = selection['category']
-
         if language == 'ru':
-            text = f"🛒 Вы выбрали:\n\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)}\n\n{get_text('choose_size', language)}"
+            text = f"🛒 Вы выбрали:\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)}\n{get_text('choose_size', language)}"
         else:
-            text = f"🛒 Siz tanladingiz:\n\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)}\n\n{get_text('choose_size', language)}"
-
+            text = f"🛒 Siz tanladingiz:\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)}\n{get_text('choose_size', language)}"
         await message.answer(text, reply_markup=get_size_keyboard(language, category))
 
 async def handle_customization_text(message: types.Message):
     user_id = message.from_user.id
     session = user_sessions.get(user_id, {})
-
     if not session.get('waiting_customization_text'):
         return
-
     user = get_user(user_id)
     if not user or user_id not in user_selections:
         return
-
     language = user[2]
     selection = user_selections[user_id]
-
     selection['customization'] = {'price': CUSTOMIZATION_PRICE, 'text': message.text}
     user_sessions[user_id] = {}
-
     category = selection['category']
-
     if language == 'ru':
-        text = f"✅ Кастомизация добавлена: «{message.text}»\n\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)} + {format_price(CUSTOMIZATION_PRICE, language)}\n\n{get_text('choose_size', language)}"
+        text = f"✅ Кастомизация добавлена: «{message.text}»\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)} + {format_price(CUSTOMIZATION_PRICE, language)}\n{get_text('choose_size', language)}"
     else:
-        text = f"✅ Be'zash qo'shildi: «{message.text}»\n\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)} + {format_price(CUSTOMIZATION_PRICE, language)}\n\n{get_text('choose_size', language)}"
-
+        text = f"✅ Be'zash qo'shildi: «{message.text}»\n📦 {selection['product_name']}\n💵 {format_price(selection['product_price'], language)} + {format_price(CUSTOMIZATION_PRICE, language)}\n{get_text('choose_size', language)}"
     await message.answer(text, reply_markup=get_size_keyboard(language, category))
 
-# ВЫБОР РАЗМЕРА
+# ================== ВЫБОР РАЗМЕРА ==================
 @dp.callback_query(F.data.startswith('size_'))
 async def handle_size_selection(callback: types.CallbackQuery):
     user = get_user(callback.from_user.id)
     if not user or callback.from_user.id not in user_selections:
         await callback.answer("❌ Сначала выберите товар")
         return
-
     language = user[2]
     size = callback.data.replace('size_', '')
-
     if size == "help":
         if language == 'ru':
             text = (
-                "📏 **ТАБЛИЦА РАЗМЕРОВ**\n\n"
+                "📏 **ТАБЛИЦА РАЗМЕРОВ**\n"
                 "**👕 ФУТБОЛКИ И ФОРМЫ:**\n"
                 "• S (46-48) - Обхват груди: 92-96см\n"
                 "• M (48-50) - Обхват груди: 96-100см\n"
                 "• L (50-52) - Обхват груди: 100-104см\n"
                 "• XL (52-54) - Обхват груди: 104-108см\n"
-                "• XXL (54-56) - Обхват груди: 108-112см\n\n"
+                "• XXL (54-56) - Обхват груди: 108-112см\n"
                 "**⚽ БУТСЫ:**\n"
                 "• 40 EU - Для стопы ~25.5см\n"
                 "• 41 EU - Для стопы ~26.5см\n"
                 "• 42 EU - Для стопы ~27см\n"
                 "• 43 EU - Для стопы ~27.5см\n"
-                "• 44 EU - Для стопы ~28.5см\n\n"
+                "• 44 EU - Для стопы ~28.5см\n"
                 "ℹ️ Если сомневаетесь в размере, напишите нам!"
             )
         else:
             text = (
-                "📏 **OʻLCHAMLAR JADVALI**\n\n"
+                "📏 **OʻLCHAMLAR JADVALI**\n"
                 "**👕 FUTBOLKALAR VA FORMALAR:**\n"
                 "• S (46-48) - Ko'krak qafasi: 92-96sm\n"
                 "• M (48-50) - Ko'krak qafasi: 96-100sm\n"
                 "• L (50-52) - Ko'krak qafasi: 100-104sm\n"
                 "• XL (52-54) - Ko'krak qafasi: 104-108sm\n"
-                "• XXL (54-56) - Ko'krak qafasi: 108-112sm\n\n"
+                "• XXL (54-56) - Ko'krak qafasi: 108-112sm\n"
                 "**⚽ FUTBOLKALAR:**\n"
                 "• 40 EU - Oyoq uchun ~25.5sm\n"
                 "• 41 EU - Oyoq uchun ~26.5sm\n"
                 "• 42 EU - Oyoq uchun ~27sm\n"
                 "• 43 EU - Oyoq uchun ~27.5sm\n"
-                "• 44 EU - Oyoq uchun ~28.5sm\n\n"
+                "• 44 EU - Oyoq uchun ~28.5sm\n"
                 "ℹ️ Oʻlchamda shubhangiz boʻlsa, bizga yozing!"
             )
-
         await callback.message.answer(text, parse_mode='HTML')
         await callback.answer()
         return
-
     selection = user_selections[callback.from_user.id]
     selection['size'] = size
-
     if callback.from_user.id not in user_carts:
         user_carts[callback.from_user.id] = []
-
     user_carts[callback.from_user.id].append(selection.copy())
-
     if language == 'ru':
         await callback.message.answer(f"✅ Товар добавлен в корзину! Размер: {size}")
     else:
         await callback.message.answer(f"✅ Mahsulot savatga qo'shildi! Oʻlcham: {size}")
-
     await show_cart(callback.from_user.id, language, callback.message)
     await callback.answer()
-
-# Показать корзину (команда)
-async def show_cart_command(message: types.Message):
+    # ================== ОПЛАТА И ЧЕКИ ==================
+@dp.message(F.text.in_(["💳 Перевод на карту", "💳 Karta orqali"]))
+async def handle_payment_method(message: types.Message):
     user = get_user(message.from_user.id)
     if not user:
         await message.answer("❌ Сначала завершите регистрацию через /start")
         return
-
-    language = user[2]
-    await show_cart(message.from_user.id, language, message)
-
-async def add_more_products(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        return
-
-    language = user[2]
-    await message.answer("📋 Выберите категорию:" if language == 'ru' else "📋 Toifani tanlang:",
-                   reply_markup=get_catalog_keyboard(language))
-
-async def checkout_cart(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        return
-
-    language = user[2]
-    cart = user_carts.get(message.from_user.id, [])
-
-    if not cart:
-        if language == 'ru':
-            await message.answer("❌ Корзина пуста")
-        else:
-            await message.answer("❌ Savat bo'sh")
-        return
-
-    total_price = sum(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0) for item in cart)
-
-    if language == 'ru':
-        text = f"🛒 Оформление заказа\n\nТоваров: {len(cart)}\n💰 Сумма: {format_price(total_price, language)}\n\nВыберите способ оплаты:"
-    else:
-        text = f"🛒 Buyurtma rasmiylashtirish\n\nMahsulotlar: {len(cart)}\n💰 Summa: {format_price(total_price, language)}\n\nTo'lov usulini tanlang:"
-
-    user_sessions[message.from_user.id] = {'checkout_cart': cart.copy()}
-    await message.answer(text, reply_markup=get_payment_menu(language))
-
-async def clear_cart(message: types.Message):
-    user_id = message.from_user.id
-    if user_id in user_carts:
-        del user_carts[user_id]
-
-    user = get_user(user_id)
-    if user:
-        language = user[2]
-        if language == 'ru':
-            await message.answer("✅ Корзина очищена", reply_markup=get_main_menu(language))
-        else:
-            await message.answer("✅ Savat tozalandi", reply_markup=get_main_menu(language))
-
-# ОПЛАТА
-async def handle_payment(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        return
-
     phone, name, language, region, post_office = user
-
-    if message.text in ["❌ Отмена", "❌ Bekor qilish"]:
-        await handle_cancel(message)
-        return
-
-    session = user_sessions.get(message.from_user.id, {})
-    cart = session.get('checkout_cart', [])
+    cart = user_carts.get(message.from_user.id, [])
     if not cart:
         if language == 'ru':
-            await message.answer("❌ Корзина пуста")
+            await message.answer("❌ Корзина пуста", reply_markup=get_main_menu_inline(language))
         else:
-            await message.answer("❌ Savat bo'sh")
+            await message.answer("❌ Savat bo'sh", reply_markup=get_main_menu_inline(language))
         return
-
     total_price = sum(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0) for item in cart)
+    if language == 'ru':
+        text = (
+            f"💳 Перевод на карту\n"
+            f"📦 Товаров: {len(cart)}\n"
+            f"💰 Сумма: {format_price(total_price, language)}\n"
+            f"🔄 Переведите на карту:\n"
+            f"<code>{CARD_NUMBER}</code>\n"
+            f"📸 После перевода отправьте скриншот чека"
+        )
+    else:
+        text = (
+            f"💳 Karta orqali to'lash\n"
+            f"📦 Mahsulotlar: {len(cart)}\n"
+            f"💰 Summa: {format_price(total_price, language)}\n"
+            f"🔄 Kartaga o'tkazing:\n"
+            f"<code>{CARD_NUMBER}</code>\n"
+            f"📸 O'tkazishdan so'ng chek skrinshotini yuboring"
+        )
+    await message.answer(text, parse_mode='HTML')
+    user_sessions[message.from_user.id] = {'waiting_receipt': True, 'cart': cart.copy()}
 
+@dp.message(F.photo)
+async def handle_receipt_photo(message: types.Message):
+    user_id = message.from_user.id
+    session = user_sessions.get(user_id, {})
+    if not session.get('waiting_receipt'):
+        return
+    user = get_user(user_id)
+    if not user:
+        return
+    phone, name, language, region, post_office = user
+    cart = session.get('cart', [])
+    if not cart:
+        return
+    total_price = sum(item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0) for item in cart)
     order_ids = []
-
     for item in cart:
         order_id = save_order(
-            message.from_user.id, phone, name, region, post_office,
+            user_id, phone, name, region, post_office,
             item['product_name'], item['product_price'],
             item.get('size'),
             item.get('customization', {}).get('text') if item.get('customization') else None,
@@ -3297,635 +3329,185 @@ async def handle_payment(message: types.Message):
             'card_pending'
         )
         order_ids.append(order_id)
-
-    if language == 'ru':
-        text = (
-            f"💳 Перевод на карту\n\n"
-            f"📦 Заказов: {len(cart)}\n"
-            f"💵 Сумма: {format_price(total_price, language)}\n\n"
-            f"🔄 Переведите на карту:\n"
-            f"<code>{CARD_NUMBER}</code>\n\n"
-            f"📸 После перевода отправьте скриншот чека\n"
-            f"Мы подтвердим заказы в течение 15 минут!"
-        )
-    else:
-        text = (
-            f"💳 Karta orqali to'lash\n\n"
-            f"📦 Buyurtmalar: {len(cart)}\n"
-            f"💵 Summa: {format_price(total_price, language)}\n\n"
-            f"🔄 Kartaga o'tkazing:\n"
-            f"<code>{CARD_NUMBER}</code>\n\n"
-            f"📸 O'tkazishdan so'ng chek skrinshotini yuboring\n"
-            f"Buyurtmalarni 15 daqiqa ichida tasdiqlaymiz!"
-        )
-
-    await message.answer(text, parse_mode='HTML')
-    user_sessions[message.from_user.id] = {'waiting_receipt': True, 'order_ids': order_ids, 'checkout_cart': cart.copy()}
-
-# ОБРАБОТКА ЧЕКА ОПЛАТЫ
-@dp.message(F.photo)
-async def handle_receipt_photo(message: types.Message):
-    user_id = message.from_user.id
-    session = user_sessions.get(user_id, {})
-
-    if not session.get('waiting_receipt'):
-        return
-
-    user = get_user(user_id)
-    if not user:
-        return
-
-    language = user[2]
-    order_ids = session.get('order_ids', [])
-    
-    # Получаем данные пользователя
-    phone, name, language, region, post_office = user
-
+    # Обновляем статусы
     for order_id in order_ids:
         update_order_status(order_id, 'waiting_confirm')
-
-    cart = session.get('checkout_cart', [])
+    # Формируем уведомление для админов
     order_details = []
-    total_price = 0
-
     for item in cart:
         item_price = item['product_price'] + (item.get('customization', {}).get('price', 0) if item.get('customization') else 0)
-        total_price += item_price
-
-        item_detail = f"• {item['product_name']}"
+        detail = f"• {item['product_name']}"
         if item.get('size'):
-            item_detail += f" | Размер: {item['size']}"
+            detail += f" | 📏 {item['size']}"
         if item.get('customization'):
-            item_detail += f" | Кастомизация: {item['customization']['text']}"
-        item_detail += f" | {format_price(item_price, 'ru')}"
-        order_details.append(item_detail)
-
+            detail += f" | ✨ {item['customization']['text']}"
+        detail += f" | 💵 {format_price(item_price, 'ru')}"
+        order_details.append(detail)
     admin_text = (
-        f"🆕 НОВЫЙ ЗАКАЗ С ОПЛАТОЙ\n\n"
+        f"🆕 НОВЫЙ ЗАКАЗ С ОПЛАТОЙ\n"
         f"👤 {name} (@{message.from_user.username or 'N/A'})\n"
         f"📞 {phone}\n"
         f"🏙️ {REGIONS['ru'].get(region, region)}\n"
-        f"🏙️ Город: {session.get('city', 'Не указан')}\n"  # ← ДОБАВИЛИ ГОРОД
-        f"📮 {post_office}\n\n"
-        f"📦 Товары:\n" + "\n".join(order_details) + f"\n\n"
+        f"📮 {post_office}\n"
+        f"📦 Товары:\n" + "\n".join(order_details) + f"\n"
         f"💰 Итого: {format_price(total_price, 'ru')}\n"
         f"💳 Оплата: картой ✅\n"
         f"🆔 Заказы: {', '.join(map(str, order_ids))}\n"
         f"🕒 {datetime.now().strftime('%H:%M %d.%m.%Y')}"
     )
-
-    try:
-        # 🔥 ИСПРАВЛЕНИЕ: Отправляем админам сначала текст, потом фото чека
-        for admin_id in ADMIN_IDS:
-            try:
-                # Отправляем текстовое уведомление
-                await bot.send_message(admin_id, admin_text)
-                
-                # Отправляем фото чека
-                await bot.send_photo(admin_id, message.photo[-1].file_id, 
-                                   caption=f"📸 Чек оплаты для заказов: {', '.join(map(str, order_ids))}")
-                
-                # 🔥 ДОПОЛНЕНИЕ: Если это Ташкент и есть геолокация - отправляем карту
-               
-                        
-            except Exception as e:
-                logging.error(f"Ошибка отправки админу {admin_id}: {e}")
-
-        if language == 'ru':
-            await message.answer("✅ Чек получен! Мы проверяем оплату и скоро подтвердим ваш заказ.", reply_markup=get_main_menu(language))
-        else:
-            await message.answer("✅ Chek qabul qilindi! Biz to'lovni tekshiramiz va tez orada buyurtmangizni tasdiqlaymiz.", reply_markup=get_main_menu(language))
-
-        if user_id in user_carts:
-            del user_carts[user_id]
-        user_sessions[user_id] = {}
-
-    except Exception as e:
-        logging.error(f"Ошибка отправки чека: {e}")
-        if language == 'ru':
-            await message.answer("❌ Ошибка при отправке чека. Попробуйте еще раз.")
-        else:
-            await message.answer("❌ Chek yuborishda xatolik. Qayta urinib ko'ring.")
-
-# СИСТЕМА ОТЗЫВОВ
-async def show_reviews_menu(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
-        return
-
-    phone, name, language, region, post_office = user
+    # Уведомляем админов
+    await notify_admins_with_role_check(admin_text, message.photo[-1].file_id, order_ids)
+    # Ответ пользователю
     if language == 'ru':
-        text = "⭐ Мнение клиентов\n\nЗдесь вы можете посмотреть отзывы наших клиентов или оставить свой отзыв!"
+        await message.answer("✅ Чек получен! Мы проверяем оплату и скоро подтвердим ваш заказ.", reply_markup=get_main_menu_inline(language))
     else:
-        text = "⭐ Mijozlar fikri\n\nBu yerda mijozlarimiz sharhlarini ko'rishingiz yoki o'z sharhingizni qoldirishingiz mumkin!"
+        await message.answer("✅ Chek qabul qilindi! Biz to'lovni tekshiramiz va tez orada buyurtmangizni tasdiqlaymiz.", reply_markup=get_main_menu_inline(language))
+    # Очищаем корзину
+    if user_id in user_carts:
+        del user_carts[user_id]
+    user_sessions[user_id] = {}
 
-    await message.answer(text, reply_markup=get_reviews_menu(language))
+@dp.callback_query(F.data == "cancel_order")
+async def handle_cancel_order(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    language = 'ru'  # можно улучшить
+    if user_id in user_carts:
+        del user_carts[user_id]
+    await callback.message.edit_text(get_text('order_cancelled', language), reply_markup=None)
+    await callback.answer()
 
-async def show_reviews(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        return
-
-    phone, name, language, region, post_office = user
-
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT customer_name, review_text_ru, review_text_uz, photo_url, rating FROM reviews ORDER BY created_at DESC LIMIT 10")
-        reviews = cursor.fetchall()
-
-    if not reviews:
-        if language == 'ru':
-            await message.answer("😔 Пока нет отзывов")
-        else:
-            await message.answer("😔 Hozircha sharhlar yo'q")
-        return
-
-    for review in reviews:
-        customer_name, review_text_ru, review_text_uz, photo_url, rating = review
-
-        stars = "⭐" * rating
-        review_text = review_text_ru if language == 'ru' else review_text_uz
-
-        caption = f"{stars}\n👤 {customer_name}\n💬 {review_text}"
-
-        try:
-            if photo_url:
-                await bot.send_photo(
-                    chat_id=message.chat.id,
-                    photo=photo_url,
-                    caption=caption
+# ================== ОТЗЫВЫ ==================
+@dp.message(F.text)
+async def handle_messages(message: types.Message):
+    user_id = message.from_user.id
+    # Обработка отзыва
+    session = user_sessions.get(user_id, {})
+    if session.get('waiting_review'):
+        user = get_user(user_id)
+        if not user:
+            return
+        language = user[2]
+        name = user[1]
+        # Сохраняем отзыв
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            if language == 'ru':
+                cursor.execute(
+                    "INSERT INTO reviews (customer_name, review_text_ru, review_text_uz) VALUES (?, ?, ?)",
+                    (name, message.text, "")
                 )
             else:
-                await message.answer(caption)
-        except Exception:
-            await message.answer(caption)
-
-async def start_review(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        return
-
-    phone, name, language, region, post_office = user
-
-    if language == 'ru':
-        text = (
-            "✍️ Напишите ваш отзыв о нашем магазине!\n\n"
-            "Можете отправить:\n"
-            "• Текст отзыва\n"
-            "• Фото + текст\n"
-            "• Просто фото\n\n"
-            "Мы добавим ваш отзыв в наш канал!"
-        )
-    else:
-        text = (
-            "✍️ Do'konimiz haqida sharhingizni yozing!\n\n"
-            "Yuborishingiz mumkin:\n"
-            "• Sharh matni\n"
-            "• Rasm + matn\n"
-            "• Shunchaki rasm\n\n"
-            "Biz sharhingizni kanalimizga qo'shamiz!"
-        )
-
-    await message.answer(text)
-    user_sessions[message.from_user.id] = {'waiting_review': True}
-
-# МОИ ЗАКАЗЫ
-async def show_my_orders(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
-        return
-
-    phone, name, language, region, post_office = user
-    orders = get_user_orders(message.from_user.id, language)
-
-    if orders:
+                cursor.execute(
+                    "INSERT INTO reviews (customer_name, review_text_ru, review_text_uz) VALUES (?, ?, ?)",
+                    (name, "", message.text)
+                )
+            conn.commit()
         if language == 'ru':
-            response = "📦 Ваши заказы:\n\n"
+            await message.answer("✅ Спасибо за ваш отзыв! Он поможет другим покупателям.", reply_markup=get_main_menu_inline(language))
         else:
-            response = "📦 Sizning buyurtmalaringiz:\n\n"
-
-        for i, (product_name, product_price, customization_price, status, payment, created_at) in enumerate(orders, 1):
-            total_price = product_price + (customization_price or 0)
-            status_icon = "✅" if status == "confirmed" else "🔄" if status == "waiting_confirm" else "🆕"
-
-            status_text = "Подтвержден" if status == "confirmed" else "Ожидает подтверждения" if status == "waiting_confirm" else "Новый"
-            if language == 'uz':
-                status_text = "Tasdiqlangan" if status == "confirmed" else "Tasdiqlanish kutilmoqda" if status == "waiting_confirm" else "Yangi"
-
-            response += f"{i}. {product_name}\n"
-            response += f"💵 {format_price(total_price, language)}\n"
-            response += f"{status_icon} {status_text}\n"
-            response += f"📅 {created_at[:16]}\n\n"
-    else:
-        if language == 'ru':
-            response = "📦 У вас еще нет заказов"
-        else:
-            response = "📦 Sizda hali buyurtmalar yo'q"
-
-    await message.answer(response, reply_markup=get_main_menu(language))
-
-# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-async def show_help(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
-        await message.answer("❌ Сначала завершите регистрацию через /start")
+            await message.answer("✅ Sharhingiz uchun rahmat! Boshqa mijozlarga yordam beradi.", reply_markup=get_main_menu_inline(language))
+        user_sessions[user_id] = {}
         return
-
-    phone, name, language, region, post_office = user
-    await message.answer(get_text('help_text', language), parse_mode='HTML')
-    support_requests[message.from_user.id] = {'waiting_question': True}
-
-async def back_to_main_menu(message: types.Message):
-    user = get_user(message.from_user.id)
-    if user:
-        language = user[2]
-        await message.answer("📋 Главное меню:" if language == 'ru' else "📋 Asosiy menyu:",
-                           reply_markup=get_main_menu(language))
-
-async def back_to_catalog(message: types.Message):
-    user = get_user(message.from_user.id)
-    if not user:
+    # Обработка кастомизации
+    if session.get('waiting_customization_text'):
+        await handle_customization_text(message)
         return
-
-    language = user[2]
-    await show_catalog(message)
-
-async def handle_cancel(message: types.Message):
-    user_id = message.from_user.id
-    user = get_user(user_id)
-    if user:
-        language = user[2]
-        if user_id in user_selections:
-            del user_selections[user_id]
-        if user_id in user_sessions:
-            user_sessions[user_id] = {}
-
-        await message.answer(get_text('order_cancelled', language),
-                           reply_markup=get_main_menu(language))
-
-# ================== АДМИН КОМАНДЫ ==================
-@dp.message(Command("admin"))
-async def admin_panel(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет доступа к админ-панели")
+    # Обработка поддержки
+    if support_requests.get(user_id, {}).get('waiting_question'):
+        # Пересылаем сообщение админам
+        for admin_id in ADMIN_IDS:
+            try:
+                await bot.send_message(
+                    admin_id,
+                    f"❓ Вопрос от @{message.from_user.username or 'пользователь'}:\n{message.text}"
+                )
+            except Exception as e:
+                logging.error(f"Ошибка отправки админу {admin_id}: {e}")
+        language = 'ru'  # можно улучшить
+        await message.answer("✅ Ваш вопрос отправлен! Мы ответим в ближайшее время.", reply_markup=get_main_menu_inline(language))
+        support_requests[user_id] = {}
         return
-
-    admin_sessions[message.from_user.id] = {'is_admin': True}
-    await message.answer("🛠️ Добро пожаловать в админ-панель!", reply_markup=get_admin_menu())
-
-# Обработка админ-меню
-@dp.message(F.text.in_(["📊 Статистика", "📦 Заказы", "➕ Добавить товар", "🛍️ Управление товарами", "📝 Отзывы", "🔙 Выйти из админки"]))
-async def handle_admin_commands(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
+    # Обработка ID товара
+    if message.text.isdigit():
+        await handle_product_selection(message)
         return
+    # Иначе — показываем главное меню
+    await handle_main_menu(message)
 
-    if message.text == "📊 Статистика":
+# ================== АДМИНКА ==================
+@dp.callback_query(F.data.startswith("admin_") & ~F.data.startswith("admin_"))
+async def handle_admin_callbacks(callback: types.CallbackQuery):
+    # Обработка админ-действий — см. Часть 10
+    pass
+# ================== АДМИНКА ==================
+@dp.callback_query(F.data.startswith("admin_"))
+async def handle_admin_callbacks(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    if user_id not in ADMIN_IDS:
+        await callback.answer("❌ Доступ запрещён", show_alert=True)
+        return
+    language = 'ru'  # можно улучшить
+    data = callback.data
+    if data == "admin_stats":
         stats = get_statistics()
         text = (
-            f"📊 <b>СТАТИСТИКА МАГАЗИНА</b>\n\n"
+            f"📊 <b>СТАТИСТИКА</b>\n"
             f"👥 Пользователей: <b>{stats['total_users']}</b>\n"
-            f"📦 Всего заказов: <b>{stats['total_orders']}</b>\n"
-            f"💰 Выручка: <b>{format_price(stats['total_revenue'], 'ru')}</b>\n\n"
-            f"<b>Статусы заказов:</b>\n"
-            f"✅ Подтвержденные: <b>{stats['status_stats'].get('confirmed', 0)}</b>\n"
-            f"🔄 Ожидают: <b>{stats['status_stats'].get('waiting_confirm', 0)}</b>\n"
-            f"🆕 Новые: <b>{stats['status_stats'].get('new', 0)}</b>\n"
-            f"❌ Отклоненные: <b>{stats['status_stats'].get('cancelled', 0)}</b>"
+            f"📦 Заказов: <b>{stats['total_orders']}</b>\n"
+            f"💰 Выручка: <b>{format_price(stats['total_revenue'], 'ru')}</b>\n"
+            f"✅ Подтверждённых: <b>{stats['status_stats'].get('confirmed', 0)}</b>\n"
+            f"🔄 В ожидании: <b>{stats['status_stats'].get('waiting_confirm', 0)}</b>\n"
+            f"❌ Отменённых: <b>{stats['status_stats'].get('cancelled', 0)}</b>"
         )
-        await message.answer(text, parse_mode='HTML')
-
-    elif message.text == "📦 Заказы":
-        await message.answer("📦 <b>УПРАВЛЕНИЕ ЗАКАЗАМИ</b>", parse_mode='HTML', reply_markup=get_orders_menu())
-
-    elif message.text == "➕ Добавить товар":
-        admin_sessions[message.from_user.id] = {'adding_product': True, 'step': 'category'}
-        await message.answer("Выберите категорию товара:", reply_markup=get_categories_keyboard())
-
-    elif message.text == "🛍️ Управление товарами":
-        await message.answer("🛍️ Управление товарами:", reply_markup=get_products_management_keyboard())
-
-    elif message.text == "📝 Отзывы":
+        await callback.message.answer(text, parse_mode='HTML', reply_markup=get_admin_menu_inline())
+    elif data == "admin_orders":
+        await callback.message.answer("📦 Выберите статус заказов:", reply_markup=get_orders_menu())
+    elif data == "admin_add_product":
+        admin_sessions[user_id] = {'adding_product': True, 'step': 'category'}
+        await callback.message.answer("Выберите категорию:", reply_markup=get_categories_keyboard())
+    elif data == "admin_manage_products":
+        products = get_all_products()
+        if products:
+            await callback.message.answer("🛍️ Выберите действие:", reply_markup=get_products_list_keyboard(products, "manage"))
+        else:
+            await callback.message.answer("❌ Товаров нет", reply_markup=get_admin_menu_inline())
+    elif data == "admin_reviews":
         reviews = get_all_reviews()
-        if not reviews:
-            await message.answer("📝 Пока нет отзывов")
-            return
-
-        for review in reviews[:5]:
-            customer_name, review_text_ru, review_text_uz, photo_url, rating, created_at = review
-            stars = "⭐" * rating
-            text = f"{stars}\n👤 {customer_name}\n💬 {review_text_ru}\n📅 {created_at[:16]}"
-
-            if photo_url:
-                await message.answer_photo(photo_url, caption=text)
-            else:
-                await message.answer(text)
-
-    elif message.text == "🔙 Выйти из админки":
-        if message.from_user.id in admin_sessions:
-            del admin_sessions[message.from_user.id]
-        await message.answer("✅ Вы вышли из админ-панели", reply_markup=types.ReplyKeyboardRemove())
-
-# Обработка добавления товара (категория)
-@dp.message(F.text.in_(["👕 Формы 2024/2025", "🕰️ Ретро формы", "⚽ Бутсы", "🎁 Фут. атрибутика", "🔥 Акции"]))
-async def handle_product_category(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS or not admin_sessions.get(message.from_user.id, {}).get('adding_product'):
-        return
-
-    category_map = {
-        "👕 Формы 2024/2025": ("Формы 2024/2025", "2024/2025 Formalari"),
-        "🕰️ Ретро формы": ("Ретро формы", "Retro Formalari"),
-        "⚽ Бутсы": ("Бутсы", "Futbolkalar"),
-        "🎁 Фут. атрибутика": ("Футбольная атрибутика", "Futbol Aksessuarlari"),
-        "🔥 Акции": ("Акции", "Aksiyalar")
-    }
-
-    category_ru, category_uz = category_map[message.text]
-    admin_sessions[message.from_user.id].update({
-        'step': 'name_ru',
-        'category_ru': category_ru,
-        'category_uz': category_uz
-    })
-
-    await message.answer("Введите название товара на русском:", reply_markup=types.ReplyKeyboardRemove())
-
-# Обработка создания товара (последовательность)
-@dp.message(F.text)
-async def handle_product_creation(message: types.Message):
-    user_id = message.from_user.id
-    if user_id not in ADMIN_IDS or not admin_sessions.get(user_id, {}).get('adding_product'):
-        return await handle_main_menu(message)
-
-    session = admin_sessions[user_id]
-    step = session.get('step')
-
-    if step == 'name_ru':
-        session['name_ru'] = message.text
-        session['step'] = 'name_uz'
-        await message.answer("Введите название товара на узбекском:")
-
-    elif step == 'name_uz':
-        session['name_uz'] = message.text
-        session['step'] = 'price'
-        await message.answer("Введите цену товара (только цифры):")
-
-    elif step == 'price':
-        try:
-            session['price'] = int(message.text)
-            session['step'] = 'description_ru'
-            await message.answer("Введите описание товара на русском:")
-        except ValueError:
-            await message.answer("❌ Неверный формат цены. Введите только цифры:")
-
-    elif step == 'description_ru':
-        session['description_ru'] = message.text
-        session['step'] = 'description_uz'
-        await message.answer("Введите описание товара на узбекском:")
-
-    elif step == 'description_uz':
-        session['description_uz'] = message.text
-        session['step'] = 'sizes_ru'
-        await message.answer("Введите размеры на русском (через запятую):")
-
-    elif step == 'sizes_ru':
-        session['sizes_ru'] = message.text
-        session['step'] = 'sizes_uz'
-        await message.answer("Введите размеры на узбекском (через запятую):")
-
-    elif step == 'sizes_uz':
-        session['sizes_uz'] = message.text
-        session['step'] = 'image'
-        await message.answer("Отправьте фото товара (или отправьте 'пропустить' чтобы добавить без фото):")
-
-    elif step == 'image':
-        if message.text and message.text.lower() == 'пропустить':
-            product_data = {
-                'name_ru': session['name_ru'],
-                'name_uz': session['name_uz'],
-                'price': session['price'],
-                'category_ru': session['category_ru'],
-                'category_uz': session['category_uz'],
-                'description_ru': session['description_ru'],
-                'description_uz': session['description_uz'],
-                'sizes_ru': session['sizes_ru'],
-                'sizes_uz': session['sizes_uz'],
-                'image_url': None
-            }
-
-            product_id = add_product(**product_data)
+        if reviews:
+            for review in reviews[:5]:
+                customer_name, review_text_ru, review_text_uz, photo_url, rating, created_at = review
+                stars = "⭐" * rating
+                text = f"{stars}\n👤 {customer_name}\n💬 {review_text_ru}\n📅 {created_at[:16]}"
+                if photo_url:
+                    await callback.message.answer_photo(photo_url, caption=text)
+                else:
+                    await callback.message.answer(text)
+        else:
+            await callback.message.answer("❌ Отзывов нет")
+        await callback.message.answer("📝 Все отзывы:", reply_markup=get_admin_menu_inline())
+    elif data == "admin_exit":
+        if user_id in admin_sessions:
             del admin_sessions[user_id]
-
-            await message.answer(f"✅ Товар успешно добавлен! ID: {product_id}", reply_markup=get_admin_menu())
-
-# Получение фото товара (при добавлении)
-@dp.message(F.photo)
-async def handle_product_photo(message: types.Message):
-    user_id = message.from_user.id
-    if user_id not in ADMIN_IDS or not admin_sessions.get(user_id, {}).get('adding_product'):
-        return
-
-    session = admin_sessions[user_id]
-    if session.get('step') == 'image':
-        product_data = {
-            'name_ru': session['name_ru'],
-            'name_uz': session['name_uz'],
-            'price': session['price'],
-            'category_ru': session['category_ru'],
-            'category_uz': session['category_uz'],
-            'description_ru': session['description_ru'],
-            'description_uz': session['description_uz'],
-            'sizes_ru': session['sizes_ru'],
-            'sizes_uz': session['sizes_uz'],
-            'image_url': message.photo[-1].file_id
-        }
-
-        product_id = add_product(**product_data)
-        del admin_sessions[user_id]
-
-        await message.answer(f"✅ Товар с фото успешно добавлен! ID: {product_id}", reply_markup=get_admin_menu())
-
-# Управление товарами: callback'и
-@dp.callback_query(F.data.startswith("admin_products_"))
-async def handle_products_management_callback(callback: types.CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-
-    action = callback.data
-
-    if action == "admin_products_view":
-        products = get_all_products()
-
-        if not products:
-            await callback.message.answer("📦 Товаров нет в базе данных")
-            return
-
-        for product in products:
-            product_id, name_ru, name_uz, price = product
-            text = f"🆔 {product_id}\n🏷️ {name_ru}\n💵 {format_price(price, 'ru')}"
-            await callback.message.answer(text)
-
-        await callback.message.answer("📦 Все товары показаны выше")
-
-    elif action == "admin_products_delete":
-        products = get_all_products()
-
-        if not products:
-            await callback.message.answer("📦 Товаров нет для удаления")
-            return
-
-        await callback.message.answer("🗑️ Выберите товар для удаления:",
-                                    reply_markup=get_products_list_keyboard(products, "delete_product"))
-
-    elif action == "admin_products_back":
-        await callback.message.answer("🔙 Возврат в админ-панель", reply_markup=get_admin_menu())
-
+        USER_ROLES[user_id] = 'user'
+        await callback.message.answer("✅ Вы вышли из админки", reply_markup=get_main_menu_inline('ru'))
     await callback.answer()
 
-@dp.callback_query(F.data.startswith("delete_product_"))
-async def handle_delete_product(callback: types.CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
+# ================== ЗАПУСК ДЛЯ RENDER (WEBHOOK) ==================
+async def on_startup(app):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+    setup_database()
+    logger.info("🚀 Бот запущен на webhook!")
 
-    try:
-        product_id = int(callback.data.replace("delete_product_", ""))
-    except:
-        await callback.answer("❌ Неверный ID")
-        return
+async def on_shutdown(app):
+    await bot.delete_webhook()
+    await bot.session.close()
 
-    if delete_product(product_id):
-        await callback.message.answer(f"✅ Товар #{product_id} успешно удален")
-    else:
-        await callback.message.answer(f"❌ Ошибка при удалении товара #{product_id}")
-
-    await callback.answer()
-
-# Просмотр заказов (админ)
-@dp.callback_query(F.data.startswith("admin_orders_"))
-async def handle_admin_orders(callback: types.CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-
-    status_map = {
-        "admin_orders_pending": "waiting_confirm",
-        "admin_orders_confirmed": "confirmed",
-        "admin_orders_all": None
-    }
-
-    status = status_map[callback.data]
-    orders = get_all_orders(status)
-
-    if not orders:
-        await callback.message.answer("📦 Заказы не найдены")
-        return
-
-    for order in orders[:10]:
-        order_id, user_id, user_name, user_phone, user_region, user_post_office, product_name, product_price, product_size, customization_text, customization_price, order_status, created_at = order
-
-        status_emoji = {
-            'new': '🆕',
-            'waiting_confirm': '🔄',
-            'confirmed': '✅',
-            'cancelled': '❌'
-        }.get(order_status, '📦')
-
-        text = (
-            f"{status_emoji} <b>ЗАКАЗ #{order_id}</b>\n\n"
-            f"👤 <b>{user_name}</b>\n"
-            f"📞 {user_phone}\n"
-            f"🏙️ {REGIONS['ru'].get(user_region, user_region)}\n"
-            f"📮 {user_post_office}\n\n"
-            f"📦 <b>{product_name}</b>\n"
-            f"📏 Размер: {product_size or 'Не указан'}\n"
-        )
-
-        if customization_text:
-            text += f"✨ Кастомизация: {customization_text}\n"
-
-        total_price = product_price + (customization_price or 0)
-        text += f"💵 Сумма: {format_price(total_price, 'ru')}\n"
-        text += f"📅 {created_at[:16]}\n"
-        text += f"🔰 Статус: {order_status}"
-
-        await callback.message.answer(text, parse_mode='HTML', reply_markup=get_order_actions(order_id))
-
-    await callback.answer()
-
-# Обработка действий с заказами (подтвердить/отклонить/контакт)
-@dp.callback_query(F.data.startswith("confirm_") | F.data.startswith("reject_") | F.data.startswith("contact_"))
-async def handle_order_actions(callback: types.CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-
-    data = callback.data
-    if "_" not in data:
-        await callback.answer("❌ Неверное действие")
-        return
-
-    action, order_id_str = data.split("_", 1)
-    try:
-        order_id = int(order_id_str)
-    except:
-        await callback.answer("❌ Неверный ID заказа")
-        return
-
-    order = get_order_by_id(order_id)
-
-    if not order:
-        await callback.answer("❌ Заказ не найден")
-        return
-
-    if action == "confirm":
-        update_order_status(order_id, 'confirmed', callback.from_user.id)
-        await callback.message.edit_text(f"✅ Заказ #{order_id} подтвержден")
-
-        user_id = order[1]
-        try:
-            await bot.send_message(user_id, f"✅ Ваш заказ #{order_id} подтвержден! Скоро мы его отправим.")
-        except Exception:
-            pass
-
-    elif action == "reject":
-        update_order_status(order_id, 'cancelled', callback.from_user.id)
-        await callback.message.edit_text(f"❌ Заказ #{order_id} отклонен")
-
-        user_id = order[1]
-        try:
-            await bot.send_message(user_id, f"❌ Ваш заказ #{order_id} отклонен. Для уточнения деталей свяжитесь с нами.")
-        except Exception:
-            pass
-
-    elif action == "contact":
-        user_phone = order[3]
-        user_name = order[2]
-        await callback.message.answer(f"📞 Контакт пользователя:\n👤 {user_name}\n📞 {user_phone}")
-
-    await callback.answer()
-
-# ================== ЗАПУСК ==================
-async def main():
-    try:
-        setup_database()
-        logger.info("🚀 Бот запущен!")
-        logger.info(f"✅ Токен: {'*' * 10}{API_TOKEN[-5:]}")
-        logger.info(f"👑 Админы: {ADMIN_IDS}")
-        logger.info(f"💳 Карта: {CARD_NUMBER}")
-        logger.info("⭐ Система отзывов готова!")
-        logger.info("🛍️ Каталог товаров готов!")
-        logger.info("📱 Регистрация через контакт или ручной ввод номера")
-        logger.info("📍 Система доставки с почтовыми отделениями активирована!")
-        logger.info("🛠️ Админ-панель активирована!")
-
-               # 🔥 ИСПРАВЛЕНИЕ: Запускаем веб-сервер ОТДЕЛЬНО
-        await start_web_server()
-        
-        # 🔥 ИСПРАВЛЕНИЕ: Используем polling (проще для начала)
-        await dp.start_polling(bot)
-
-    except Exception as e:
-        logger.error(f"❌ Критическая ошибка: {e}")
-    finally:
-        await bot.session.close()
+def main():
+    app = web.Application()
+    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path=WEBHOOK_PATH)
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+    web.run_app(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
