@@ -15,6 +15,9 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
+async def handle_ping(request):
+    return web.Response(text="Bot is running!")
+
 # ================== НАСТРОЙКИ ==================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
