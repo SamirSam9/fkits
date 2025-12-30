@@ -7,8 +7,10 @@ services:
     startCommand: python bot.py
     envVars:
       - key: API_TOKEN
-        value: API_TOKEN=8322636763:AAHyqLDD-voqN6MjUD8XKV8v7Jc5FnENuv8
+        sync: false # Укажешь вручную в панели Render для безопасности
       - key: CARD_NUMBER  
-        value: 6262 4700 5534 4787
+        value: "6262 4700 5534 4787"
       - key: PORT
-        value: 10000
+        value: "10000"
+      - key: ADMIN_IDS
+        value: "5009858379,587180281,1225271746"
