@@ -2423,6 +2423,56 @@ async def start_web_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
+# ================== ГЛАВНОЕ МЕНЮ (ФУНКЦИЯ-ПОМОЩНИК) ==================
+async def handle_main_menu(message: types.Message):
+    user = get_user(message.from_user.id)
+    lang = user['language'] if user else 'ru'
+    
+    if lang == 'ru':
+        text = "🏠 <b>Главное меню</b>\nВыберите раздел:"
+    else:
+        text = "🏠 <b>Asosiy menyu</b>\nBo'limni tanlang:"
+        
+    await message.answer(text, parse_mode='HTML', reply_markup=get_main_menu(lang))
+
+# ================== ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ ==================
+@dp.message(F.text)
+async def handle_text_messages(message: types.Message):
+    user_id = message.from_user.id
+    
+    # 1. Проверяем, не ждем ли мы отзыв
+    if user_sessions.get(user_id, {}).get('step') == 'waiting_review':
+        user = get_user(user_id)
+        lang = user['language'] if user else 'ru'
+        
+        # Пересылаем отзыв админам
+        review_text = f"📝 <b>НОВЫЙ ОТЗЫВ</b>\nОт: {user['name']}\n\n{message.text}"
+        for aid in ADMIN_IDS:
+            try: await bot.send_message(aid, review_text, parse_mode='HTML')
+            except: pass
+            
+        msg = "✅ Спасибо за отзыв!" if lang == 'ru' else "✅ Sharh uchun rahmat!"
+        user_sessions[user_id]['step'] = None # Сброс шага
+        await message.answer(msg, reply_markup=get_main_menu(lang))
+        return
+
+    # 2. Проверяем, не ждем ли мы вопрос в поддержку
+    if user_id in support_requests and support_requests[user_id].get('waiting_question'):
+        user = get_user(user_id)
+        lang = user['language'] if user else 'ru'
+        
+        admin_info = f"❓ <b>ВОПРОС</b>\nОт: {user['name']}\nТел: {user['phone']}\n\n{message.text}"
+        for aid in ADMIN_IDS:
+            try: await bot.send_message(aid, admin_info, parse_mode='HTML')
+            except: pass
+        
+        msg = "✅ Вопрос отправлен! Мы ответим в ближайшее время." if lang == 'ru' else "✅ Savol yuborildi! Tez orada javob beramiz."
+        await message.answer(msg)
+        del support_requests[user_id]
+        return
+
+    # 3. Если это не команда и не ожидание ввода — просто возвращаем в меню
+    await handle_main_menu(message)
 async def main():
     setup_database()
     await start_web_server()
