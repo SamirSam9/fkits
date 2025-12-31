@@ -51,28 +51,6 @@ class OrderFlow(StatesGroup):
     payment_upload = State()
 
 # ================== ФУНКЦИИ-ЗАГЛУШКИ ДЛЯ ОШИБОК ==================
-# Эта функция должна быть определена ДО того, как она где-либо вызовется
-async def handle_main_menu(message: types.Message, state: FSMContext, lang: str = None):
-    """Исправляет NameError: name 'handle_main_menu' is not defined"""
-    if not lang:
-        data = await state.get_data()
-        lang = data.get('lang', 'ru')
-    
-    kb = ReplyKeyboardBuilder()
-    if lang == 'ru':
-        kb.row(KeyboardButton(text="🛍 Магазин"), KeyboardButton(text="📦 Мои заказы"))
-        kb.row(KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="🆘 Поддержка"))
-        text = "Вы в главном меню"
-    else:
-        kb.row(KeyboardButton(text="🛍 Do'kon"), KeyboardButton(text="📦 Buyurtmalarim"))
-        kb.row(KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="🆘 Yordam"))
-        text = "Siz asosiy menyudasiz"
-    
-    await message.answer(text, reply_markup=kb.as_markup(resize_keyboard=True))
-    await state.set_state(OrderFlow.main_menu)
-
-async def handle_ping(request):
-    return web.Response(text="Bot is running!")
 
 # ================== РАБОТА С БД ==================
 def get_db_connection():
@@ -2423,55 +2401,105 @@ async def start_web_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-# ================== ГЛАВНОЕ МЕНЮ (ФУНКЦИЯ-ПОМОЩНИК) ==================
-async def handle_main_menu(message: types.Message):
-    user = get_user(message.from_user.id)
-    lang = user['language'] if user else 'ru'
+async def handle_main_menu(message: types.Message, state: FSMContext):
+    # Очищаем все временные состояния, чтобы человек начал с чистого листа
+    await state.clear()
     
+    # Пытаемся получить юзера из БД
+    user = get_user(message.from_user.id)
+    
+    # Если юзер есть в БД - берем язык оттуда, если нет - из state, если и там нет - 'ru'
+    if user:
+        # В зависимости от того, как возвращает get_user (кортеж или словарь)
+        # Если кортеж (phone, name, lang, region), то индекс 2
+        lang = user[2] if isinstance(user, tuple) else user.get('language', 'ru')
+    else:
+        data = await state.get_data()
+        lang = data.get('lang', 'ru')
+    
+    # Отправляем меню (используем твою готовую функцию get_main_menu)
     if lang == 'ru':
         text = "🏠 <b>Главное меню</b>\nВыберите раздел:"
     else:
         text = "🏠 <b>Asosiy menyu</b>\nBo'limni tanlang:"
         
-    await message.answer(text, parse_mode='HTML', reply_markup=get_main_menu(lang))
+    await message.answer(
+        text, 
+        parse_mode='HTML', 
+        reply_markup=get_main_menu(lang) # Используем общую клавиатуру из Части 2
+    )
+    # Устанавливаем базовое состояние
+    await state.set_state(OrderFlow.main_menu)
 
 # ================== ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ ==================
 @dp.message(F.text)
 async def handle_text_messages(message: types.Message):
     user_id = message.from_user.id
+    text = message.text
     
-    # 1. Проверяем, не ждем ли мы отзыв
+    # Сначала получаем данные пользователя, чтобы знать язык
+    user = get_user(user_id)
+    lang = user[2] if user else 'ru' # В твоей функции get_user язык — это 3-й элемент (индекс 2)
+
+    # ================== ЛОГИКА КНОПОК МЕНЮ ==================
+    
+    # 1. Каталог
+    if text in ["🛍️ Каталог", "🛍️ Katalog"]:
+        return await message.answer(
+            "📂 Выберите категорию:" if lang == 'ru' else "📂 Bo'limni tanlang:",
+            reply_markup=get_catalog_keyboard(lang)
+        )
+
+    # 2. Корзина
+    elif text in ["🛒 Корзина", "🛒 Savat"]:
+        # Вызываем твою функцию оформления/просмотра корзины
+        return await checkout_cart(message)
+
+    # 3. Помощь / Поддержка
+    elif text in ["ℹ️ Помощь", "ℹ️ Yordam"]:
+        support_requests[user_id] = {'waiting_question': True}
+        return await message.answer(get_text('help_text', lang))
+
+    # 4. Мнения клиентов (Отзывы)
+    elif text in ["⭐ Мнения клиентов", "⭐ Mijozlar fikri"]:
+        # Можно просто отправить текст или переключить в режим ожидания отзыва
+        msg = "Напишите ваш отзыв:" if lang == 'ru' else "Fikringizni yozing:"
+        user_sessions[user_id] = {'step': 'waiting_review'}
+        return await message.answer(msg, reply_markup=get_back_menu(lang))
+
+    # 5. Мои заказы
+    elif text in ["📦 Мои заказы", "📦 Mening buyurtmalarim"]:
+        return await show_my_orders(message)
+
+    # 6. Кнопки "Назад"
+    elif text in ["🔙 Назад", "🔙 Orqaga", "↩️ Назад", "↩️ Orqaga", "🔙 Главное меню", "🔙 Asosiy menu"]:
+        return await handle_main_menu(message)
+
+    # ================== ПРОВЕРКА СОСТОЯНИЙ (STEPS) ==================
+
+    # Проверка на ожидание отзыва
     if user_sessions.get(user_id, {}).get('step') == 'waiting_review':
-        user = get_user(user_id)
-        lang = user['language'] if user else 'ru'
-        
-        # Пересылаем отзыв админам
-        review_text = f"📝 <b>НОВЫЙ ОТЗЫВ</b>\nОт: {user['name']}\n\n{message.text}"
+        review_text = f"📝 <b>НОВЫЙ ОТЗЫВ</b>\nОт: {user[1] if user else 'Unknown'}\n\n{text}"
         for aid in ADMIN_IDS:
             try: await bot.send_message(aid, review_text, parse_mode='HTML')
             except: pass
-            
-        msg = "✅ Спасибо за отзыв!" if lang == 'ru' else "✅ Sharh uchun rahmat!"
-        user_sessions[user_id]['step'] = None # Сброс шага
-        await message.answer(msg, reply_markup=get_main_menu(lang))
-        return
-
-    # 2. Проверяем, не ждем ли мы вопрос в поддержку
-    if user_id in support_requests and support_requests[user_id].get('waiting_question'):
-        user = get_user(user_id)
-        lang = user['language'] if user else 'ru'
         
-        admin_info = f"❓ <b>ВОПРОС</b>\nОт: {user['name']}\nТел: {user['phone']}\n\n{message.text}"
+        msg = "✅ Спасибо за отзыв!" if lang == 'ru' else "✅ Sharh uchun rahmat!"
+        user_sessions[user_id]['step'] = None
+        return await message.answer(msg, reply_markup=get_main_menu(lang))
+
+    # Проверка на вопрос в поддержку
+    if user_id in support_requests and support_requests[user_id].get('waiting_question'):
+        admin_info = f"❓ <b>ВОПРОС</b>\nОт: {user[1]}\nТел: {user[0]}\n\n{text}"
         for aid in ADMIN_IDS:
             try: await bot.send_message(aid, admin_info, parse_mode='HTML')
             except: pass
         
-        msg = "✅ Вопрос отправлен! Мы ответим в ближайшее время." if lang == 'ru' else "✅ Savol yuborildi! Tez orada javob beramiz."
-        await message.answer(msg)
+        msg = "✅ Вопрос отправлен! Мы ответим в ближайшее время." if lang == 'ru' else "✅ Savol yuborildi!"
         del support_requests[user_id]
-        return
+        return await message.answer(msg, reply_markup=get_main_menu(lang))
 
-    # 3. Если это не команда и не ожидание ввода — просто возвращаем в меню
+    # Если текст не совпал ни с одной кнопкой и нет активных шагов — просто в меню
     await handle_main_menu(message)
 async def main():
     setup_database()
