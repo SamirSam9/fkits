@@ -2433,7 +2433,7 @@ async def handle_main_menu(message: types.Message, state: FSMContext):
 
 # ================== ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ ==================
 @dp.message(F.text)
-async def handle_text_messages(message: types.Message):
+async def handle_text_messages(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     text = message.text
     
@@ -2500,7 +2500,7 @@ async def handle_text_messages(message: types.Message):
         return await message.answer(msg, reply_markup=get_main_menu(lang))
 
     # Если текст не совпал ни с одной кнопкой и нет активных шагов — просто в меню
-    await handle_main_menu(message)
+    await handle_main_menu(message, state)
 async def main():
     setup_database()
     await start_web_server()
