@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import KeyboardButton, InlineKeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, BufferedInputFile
+from aiogram.types import KeyboardButton, InlineKeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, ErrorEvent
+
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.state import State, StatesGroup
@@ -33,15 +34,23 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-@dp.errors()
-async def error_handler(update: types.Update, exception: Exception):
-    # Выводим полную трассировку ошибки
-    logger.error(f"Ошибка: {exception}")
-    logger.error(f"Traceback: {traceback.format_exc()}")
+@dp.error() # В aiogram 3.x используется @dp.error() без 's'
+async def error_handler(event: ErrorEvent):
+    # Извлекаем исключение и данные об обновлении из объекта event
+    exception = event.exception
+    update = event.update
     
-    # Показываем, какая именно функция вызвала ошибку
+    # Выводим полную трассировку ошибки
+    logger.error(f"⚠️ Произошла ошибка: {exception}")
+    logger.error(f"Full Traceback:\n{traceback.format_exc()}")
+    
+    # Ваша проверка конкретной функции
     if "handle_main_menu" in str(exception):
-        logger.error("ОШИБКА: Функция handle_main_menu вызвана без аргумента state!")
+        logger.error("❌ КРИТИЧЕСКАЯ ОШИБКА: Функция handle_main_menu вызвана некорректно!")
+    
+    # Если это сообщение, можем ответить пользователю, что что-то пошло не так
+    if update.message:
+        await update.message.answer("❌ Произошла ошибка при обработке данных. Попробуйте еще раз или обратитесь к админу.")
         
     return True
 # ================== ДАННЫЕ ==================
@@ -2409,9 +2418,18 @@ async def region_chosen(message: types.Message, state: FSMContext):
 @dp.message(OrderFlow.choosing_post)
 async def post_chosen(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    save_user(message.from_user.id, data['phone'], data['name'], data['lang'], data['region'], message.text)
-    await message.answer("✅ Регистрация завершена! / Ro'yxatdan o'tish tugadi!", 
-                       reply_markup=get_main_menu(data['lang']))
+    lang = data.get('lang', 'ru') # Безопасное получение языка
+    
+    # Сохраняем в БД
+    save_user(message.from_user.id, data['phone'], data['name'], lang, data['region'], message.text)
+    
+    # Сначала переключаем состояние, потом отправляем меню
+    await state.set_state(OrderFlow.main_menu)
+    
+    await message.answer(
+        "✅ Регистрация завершена!" if lang == 'ru' else "✅ Ro'yxatdan o'tish tugadi!", 
+        reply_markup=get_main_menu(lang)
+    )
     await state.set_state(OrderFlow.main_menu)
 
 # ================== ЛОГИКА: МАГАЗИН ==================
