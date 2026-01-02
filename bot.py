@@ -3,6 +3,7 @@ import logging
 import sqlite3
 import os
 import json
+import traceback
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -15,6 +16,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+
 
 # ================== НАСТРОЙКИ ==================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,6 +33,17 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+@dp.errors()
+async def error_handler(update: types.Update, exception: Exception):
+    # Выводим полную трассировку ошибки
+    logger.error(f"Ошибка: {exception}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    # Показываем, какая именно функция вызвала ошибку
+    if "handle_main_menu" in str(exception):
+        logger.error("ОШИБКА: Функция handle_main_menu вызвана без аргумента state!")
+        
+    return True
 # ================== ДАННЫЕ ==================
 REGIONS = {
             'ru': {
