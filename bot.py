@@ -34,6 +34,13 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+@dp.error()
+async def error_handler(event: ErrorEvent):
+    logger.error(f"Ошибка: {event.exception}")
+    if "handle_main_menu" in str(event.exception):
+        logger.error("Забыл передать state в функцию handle_main_menu!")
+    return True
+
 @dp.error() # В aiogram 3.x используется @dp.error() без 's'
 async def error_handler(event: ErrorEvent):
     # Извлекаем исключение и данные об обновлении из объекта event
